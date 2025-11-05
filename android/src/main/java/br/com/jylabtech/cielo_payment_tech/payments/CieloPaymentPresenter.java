@@ -84,6 +84,68 @@ public class CieloPaymentPresenter {
         }
     }
 
+    public void cancel(String cancelRequestJson, String urlCallback) throws Exception {
+        // Valida licença antes de permitir o cancelamento
+        if (!checkValidLicence()) {
+            throw new Exception("Licença inválida. Não é possível realizar o cancelamento.");
+        }
+
+        try {
+            Log.i(TAG, "Iniciando cancelamento com URL callback: " + urlCallback);
+            
+            // Salva o urlCallback para usar quando receber o deep link
+            cieloTech.setUrlCallback(urlCallback);
+            
+            // Cria a URL do LIO para cancelamento
+            String url = "lio://payment-reversal?request=" + cancelRequestJson + "&urlCallback=" + urlCallback;
+            Uri uri = Uri.parse(url);
+            
+            Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            
+            if (intent.resolveActivity(context.getPackageManager()) != null) {
+                context.startActivity(intent);
+                channel.invokeMethod("onMessage", "Cancelamento iniciado. Aguardando resposta do LIO...");
+            } else {
+                channel.invokeMethod("onError", "Erro: App LIO não instalado.");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Erro ao iniciar cancelamento", e);
+            throw e; // Re-throw para o plugin tratar
+        }
+    }
+
+    public void print(String printRequestJson, String urlCallback) throws Exception {
+        // Valida licença antes de permitir a impressão
+        if (!checkValidLicence()) {
+            throw new Exception("Licença inválida. Não é possível realizar a impressão.");
+        }
+
+        try {
+            Log.i(TAG, "Iniciando impressão com URL callback: " + urlCallback);
+            
+            // Salva o urlCallback para usar quando receber o deep link
+            cieloTech.setUrlCallback(urlCallback);
+            
+            // Cria a URL do LIO para impressão
+            String url = "lio://print?request=" + printRequestJson + "&urlCallback=" + urlCallback;
+            Uri uri = Uri.parse(url);
+            
+            Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            
+            if (intent.resolveActivity(context.getPackageManager()) != null) {
+                context.startActivity(intent);
+                channel.invokeMethod("onMessage", "Impressão iniciada. Aguardando resposta do LIO...");
+            } else {
+                channel.invokeMethod("onError", "Erro: App LIO não instalado.");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Erro ao iniciar impressão", e);
+            throw e; // Re-throw para o plugin tratar
+        }
+    }
+
     public void handleDeepLink(Uri uri) {
         cieloTech.handleDeepLink(uri);
     }
@@ -94,3 +156,4 @@ public class CieloPaymentPresenter {
         }
     }
 }
+
