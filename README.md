@@ -229,12 +229,13 @@ try {
 
 #### Pagamento Customizado
 
-Para ter mais controle sobre o pagamento, você pode criar um `PaymentRequest` customizado:
+Para ter mais controle sobre o pagamento, você pode criar um `PaymentRequest` customizado com qualquer tipo de pagamento suportado:
 
 ```dart
 import 'package:cielo_payment_tech/cielo_payment_tech.dart';
 
-final paymentRequest = PaymentRequest(
+// Exemplo: Pagamento PIX
+final paymentRequestPix = PaymentRequest(
   accessToken: "seu_access_token",
   clientId: "seu_client_id",
   email: "email@exemplo.com",
@@ -249,12 +250,52 @@ final paymentRequest = PaymentRequest(
     ),
   ],
   merchantCode: "seu_merchant_code",
-  paymentCode: PaymentType.creditoAvista.code, // ou PaymentType.debitoAvista.code
+  paymentCode: PaymentType.pix.code,
+  value: 10000,
+);
+
+// Exemplo: Crédito Parcelado Loja (3x)
+final paymentRequestParcelado = PaymentRequest(
+  accessToken: "seu_access_token",
+  clientId: "seu_client_id",
+  email: "email@exemplo.com",
+  installments: 3, // Número de parcelas
+  items: [
+    PaymentItem(
+      name: "Produto",
+      quantity: 1,
+      sku: "SKU123",
+      unitOfMeasure: "UN",
+      unitPrice: 10000,
+    ),
+  ],
+  merchantCode: "seu_merchant_code",
+  paymentCode: PaymentType.creditoParceladoLoja.code,
+  value: 10000,
+);
+
+// Exemplo: Voucher Alimentação
+final paymentRequestVoucher = PaymentRequest(
+  accessToken: "seu_access_token",
+  clientId: "seu_client_id",
+  email: "email@exemplo.com",
+  installments: 0,
+  items: [
+    PaymentItem(
+      name: "Produto",
+      quantity: 1,
+      sku: "SKU123",
+      unitOfMeasure: "UN",
+      unitPrice: 10000,
+    ),
+  ],
+  merchantCode: "seu_merchant_code",
+  paymentCode: PaymentType.voucherAlimentacao.code,
   value: 10000,
 );
 
 try {
-  final success = await payment.checkout(paymentRequest: paymentRequest);
+  final success = await payment.checkout(paymentRequest: paymentRequestPix);
   if (success) {
     // Pagamento iniciado
   }
@@ -262,6 +303,28 @@ try {
   print('Erro: $e');
 }
 ```
+
+**Todos os tipos de pagamento disponíveis:**
+
+```dart
+// Listar todos os códigos disponíveis
+final allCodes = PaymentType.allCodes;
+print(allCodes); // ['DEBITO_AVISTA', 'CREDITO_AVISTA', 'PIX', ...]
+
+// Converter código string para PaymentType
+final type = PaymentType.fromCode('PIX');
+if (type != null) {
+  print(type.code); // 'PIX'
+}
+```
+
+**Exemplos de uso por categoria:**
+
+- **Débito:** `PaymentType.debitoAvista.code`
+- **Crédito:** `PaymentType.creditoAvista.code`, `PaymentType.creditoParceladoLoja.code`, etc.
+- **Vouchers:** `PaymentType.voucherAlimentacao.code`, `PaymentType.voucherRefeicao.code`, etc.
+- **Cartão Loja:** `PaymentType.cartaoLojaAvista.code`, `PaymentType.cartaoLojaParceladoLoja.code`, etc.
+- **Outros:** `PaymentType.pix.code`, `PaymentType.preAutorizacao.code`, etc.
 
 ### 4. Estrutura de Resposta
 
@@ -351,8 +414,42 @@ Future<void> onError(String message) async {
 
 ## Recursos
 
-- ✅ Pagamento de crédito à vista
-- ✅ Pagamento de débito à vista
+### Tipos de Pagamento Suportados
+
+**Débito:**
+- ✅ Débito à vista
+
+**Crédito:**
+- ✅ Crédito à vista
+- ✅ Crédito parcelado loja
+- ✅ Crédito parcelado administradora
+- ✅ Crédito parcelado banco
+- ✅ Crédito parcelado cliente
+- ✅ Crédito crediário
+
+**Vouchers:**
+- ✅ Voucher alimentação
+- ✅ Voucher refeição
+- ✅ Voucher automotivo
+- ✅ Voucher cultura
+- ✅ Voucher benefícios
+- ✅ Voucher auto
+
+**Cartão Loja:**
+- ✅ Cartão loja à vista
+- ✅ Cartão loja parcelado loja
+- ✅ Cartão loja parcelado
+- ✅ Cartão loja parcelado banco
+- ✅ Cartão loja pagamento fatura cheque
+- ✅ Cartão loja pagamento fatura dinheiro
+
+**Outros:**
+- ✅ PIX
+- ✅ Pré-autorização
+- ✅ Crediário venda
+
+### Outros Recursos
+
 - ✅ Deep linking automático com o LIO
 - ✅ Sistema de licenciamento integrado e seguro
 - ✅ Validação de licença automática no nativo

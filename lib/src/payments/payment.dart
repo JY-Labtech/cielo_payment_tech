@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:cielo_payment_tech/src/interface/handler/icielo_handler.dart';
 import 'package:cielo_payment_tech/src/interface/model/payment_request.dart';
 import 'package:cielo_payment_tech/src/interface/model/payment_type.dart';
+import 'package:cielo_payment_tech/src/interface/model/cancel_request.dart';
+import 'package:cielo_payment_tech/src/interface/model/print_request.dart';
 
 final class Payment {
   final MethodChannel channel;
@@ -58,6 +60,18 @@ final class Payment {
           final responseJson = call.arguments as String;
           final responseMap = json.decode(responseJson) as Map<String, dynamic>;
           await paymentHandler.onTransactionSuccess(responseMap);
+          break;
+
+        case "onCancelSuccess":
+          final responseJson = call.arguments as String;
+          final responseMap = json.decode(responseJson) as Map<String, dynamic>;
+          await paymentHandler.onCancelSuccess(responseMap);
+          break;
+
+        case "onPrintSuccess":
+          final responseJson = call.arguments as String;
+          final responseMap = json.decode(responseJson) as Map<String, dynamic>;
+          await paymentHandler.onPrintSuccess(responseMap);
           break;
 
         case "onError":
@@ -140,6 +154,80 @@ final class Payment {
     );
 
     return await checkout(paymentRequest: paymentRequest);
+  }
+
+  /// Function to cancel payment
+  Future<bool> cancelPayment({
+    required CancelRequest cancelRequest,
+    String? urlCallback,
+  }) async {
+    try {
+      final cancelRequestJson = cancelRequest.toBase64Encode();
+      // Para cancelamento, usa order://response como callback padrão
+      final callback = urlCallback ?? "order://response";
+
+      await channel.invokeMethod("paymentCancel", {
+        "cancelRequest": cancelRequestJson,
+        "urlCallback": callback,
+      });
+      return true;
+    } catch (e) {
+      await paymentHandler.onError('Erro ao iniciar cancelamento: $e');
+      return false;
+    }
+  }
+
+  /// Function to print text or image
+  Future<bool> print({
+    required PrintRequest printRequest,
+    String? urlCallback,
+  }) async {
+    try {
+      final printRequestJson = printRequest.toBase64Encode();
+      // Para impressão, usa order://response como callback padrão
+      final callback = urlCallback ?? "order://response";
+
+      await channel.invokeMethod("print", {
+        "printRequest": printRequestJson,
+        "urlCallback": callback,
+      });
+      return true;
+    } catch (e) {
+      await paymentHandler.onError('Erro ao iniciar impressão: $e');
+      return false;
+    }
+  }
+
+  /// Convenience method to print text
+  Future<bool> printText({
+    required String text,
+    List<Map<String, dynamic>>? styles,
+    String? urlCallback,
+  }) async {
+    final printRequest = PrintRequest.text(
+      text: text,
+      styles: styles,
+    );
+    return await print(
+      printRequest: printRequest,
+      urlCallback: urlCallback,
+    );
+  }
+
+  /// Convenience method to print image
+  Future<bool> printImage({
+    required String imagePath,
+    List<Map<String, dynamic>>? styles,
+    String? urlCallback,
+  }) async {
+    final printRequest = PrintRequest.image(
+      imagePath: imagePath,
+      styles: styles,
+    );
+    return await print(
+      printRequest: printRequest,
+      urlCallback: urlCallback,
+    );
   }
 
   /// Dispose resources

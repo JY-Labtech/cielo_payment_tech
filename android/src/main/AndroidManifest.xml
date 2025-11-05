@@ -1,3 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   package="br.com.jylabtech.cielo_payment_tech">
+
+  <uses-permission android:name="android.permission.INTERNET"/>
 </manifest>

@@ -70,6 +70,36 @@ public class CieloPaymentTechPlugin implements FlutterPlugin, MethodCallHandler,
           }
           break;
 
+        case PAYMENT_CANCEL:
+          String cancelRequestJson = call.argument("cancelRequest");
+          String cancelUrlCallback = call.argument("urlCallback");
+          if (cancelRequestJson == null || cancelUrlCallback == null) {
+            result.error("INVALID_ARGUMENT", "cancelRequest e urlCallback são obrigatórios", null);
+            return;
+          }
+          try {
+            paymentPresenter.cancel(cancelRequestJson, cancelUrlCallback);
+            result.success(true);
+          } catch (Exception e) {
+            result.error("LICENCE_ERROR", e.getMessage(), null);
+          }
+          break;
+
+        case PRINT:
+          String printRequestJson = call.argument("printRequest");
+          String printUrlCallback = call.argument("urlCallback");
+          if (printRequestJson == null || printUrlCallback == null) {
+            result.error("INVALID_ARGUMENT", "printRequest e urlCallback são obrigatórios", null);
+            return;
+          }
+          try {
+            paymentPresenter.print(printRequestJson, printUrlCallback);
+            result.success(true);
+          } catch (Exception e) {
+            result.error("LICENCE_ERROR", e.getMessage(), null);
+          }
+          break;
+
         case PAYMENT_CREDIT:
         case PAYMENT_DEBIT:
           // Estes métodos podem ser implementados se necessário, ou usar PAYMENT_CHECKOUT
@@ -135,8 +165,9 @@ public class CieloPaymentTechPlugin implements FlutterPlugin, MethodCallHandler,
   private boolean handleIntent(Intent intent) {
     if (intent != null && intent.getData() != null) {
       Uri uri = intent.getData();
+      // Processa tanto order://payment quanto order://response
       if (uri.getScheme() != null && uri.getScheme().equals("order") 
-          && uri.getHost() != null && uri.getHost().equals("payment")) {
+          && (uri.getHost() != null && (uri.getHost().equals("payment") || uri.getHost().equals("response")))) {
         if (paymentPresenter == null) {
           paymentPresenter = new CieloPaymentPresenter(channel, context);
         }
