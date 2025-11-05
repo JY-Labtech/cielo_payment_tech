@@ -1,0 +1,13 @@
+# Exemplo de configuração do local.properties
+# Copie este arquivo para local.properties e adicione suas chaves de licença
+
+sdk.dir=/caminho/para/android/sdk
+flutter.sdk=/caminho/para/flutter/sdk
+
+# Chaves de licença (obrigatórias)
+licenceKey=SUA_LICENCE_KEY_AQUI
+licenceInternalKey=SUA_LICENCE_INTERNAL_KEY_AQUI
+
+# Nota: O local.properties é um arquivo local e não deve ser versionado no Git
+# Adicione local.properties ao .gitignore
+
