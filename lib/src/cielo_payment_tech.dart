@@ -4,6 +4,14 @@ import 'package:cielo_payment_tech/src/payments/payment.dart';
 
 class CieloPaymentTech {
   static const channelName = "cielo_payment_tech";
+
+  /// URL de validação de licença do servidor oficial da JY Labtech, em base64
+  /// (`https://portal-api.jylabtech.com.br/pos-payments/licence/check`).
+  ///
+  /// É o valor padrão de `licenceInternalKey`. O plugin nativo sempre valida
+  /// nesse servidor: qualquer outro valor de `licenceInternalKey` é ignorado.
+  static const licenceCheck =
+      'aHR0cHM6Ly9wb3J0YWwtYXBpLmp5bGFidGVjaC5jb20uYnIvcG9zLXBheW1lbnRzL2xpY2VuY2UvY2hlY2s=';
   final MethodChannel _channel;
   Payment? _payment;
 
@@ -16,27 +24,35 @@ class CieloPaymentTech {
     return _instance!;
   }
 
-  /// Function to initialize payment and register the notification handler
-  /// As chaves de licença são lidas automaticamente do arquivo local.properties do Android
+  /// Inicializa o pagamento e envia as chaves de licença para o módulo nativo.
+  ///
+  /// `licenceInternalKey` é opcional (padrão: [licenceCheck]). Toda operação
+  /// (pagamento, cancelamento, impressão) valida a licença no nativo antes de
+  /// executar; com licença inválida a operação falha com `LICENCE_ERROR`,
+  /// entregue em `handler.onError`.
   Payment initPayment({
     required ICieloHandler handler,
+    required String licenceKey,
+    String licenceInternalKey = licenceCheck,
     String? urlCallback,
   }) {
-    if (_payment != null) {
-      return _payment!;
-    }
-    _payment = Payment.create(
+    final payment = Payment.create(
       channel: _channel,
       paymentHandler: handler,
       urlCallback: urlCallback ?? "order://payment",
+      licenceKey: licenceKey,
+      licenceInternalKey: licenceInternalKey,
     );
-    return _payment!;
+    _payment = payment;
+    return payment;
   }
 
   /// Get the Payment object. Note: It needs to be initialized.
   Payment get payment {
     if (_payment == null) {
-      throw Exception("PAYMENT NEEDS TO BE INITIALIZED! \n TRY: CieloPaymentTech.I.initPayment(handler)");
+      throw Exception(
+        "PAYMENT NEEDS TO BE INITIALIZED! \n TRY: CieloPaymentTech.I.initPayment(handler: handler, licenceKey: '...')",
+      );
     }
     return _payment!;
   }

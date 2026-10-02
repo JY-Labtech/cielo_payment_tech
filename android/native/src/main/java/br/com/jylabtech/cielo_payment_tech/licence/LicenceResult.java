@@ -3,7 +3,8 @@ package br.com.jylabtech.cielo_payment_tech.licence;
 public class LicenceResult {
     private String method;
     private String errorMessage;
-    private int result;
+    // Começa como erro: só vira sucesso (0) quando a licença foi validada de fato.
+    private int result = LicenceRules.RESULT_ERROR;
     private String message;
 
     private CheckLicenceEntity licenceEntity;
@@ -46,6 +47,10 @@ public class LicenceResult {
 
     public int getResult() {
         return this.result;
+    }
+
+    public boolean isSuccess() {
+        return this.result == LicenceRules.RESULT_SUCCESS;
     }
 }
 

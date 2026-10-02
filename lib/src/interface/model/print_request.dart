@@ -57,12 +57,10 @@ class PrintRequest {
 
   factory PrintRequest.fromMap(Map<String, dynamic> json) => PrintRequest(
     operation: json["operation"] ?? '',
-    styles: json["styles"] == null 
-        ? [] 
+    styles: json["styles"] == null
+        ? []
         : List<Map<String, dynamic>>.from(json["styles"].map((x) => x as Map<String, dynamic>)),
-    value: json["value"] == null 
-        ? [] 
-        : List<String>.from(json["value"].map((x) => x.toString())),
+    value: json["value"] == null ? [] : List<String>.from(json["value"].map((x) => x.toString())),
   );
 
   Map<String, dynamic> toMap() => {
@@ -76,4 +74,3 @@ class PrintRequest {
     return base64.encode(encodedText);
   }
 }
-

@@ -92,7 +92,15 @@ class _PaymentPageState extends State<PaymentPage> {
       },
     );
 
-    _payment = CieloPaymentTech.I.initPayment(handler: handler);
+    _payment = CieloPaymentTech.I.initPayment(
+      handler: handler,
+      licenceKey: const String.fromEnvironment('CIELO_LICENCE_KEY'),
+      licenceInternalKey: const String.fromEnvironment(
+        'CIELO_LICENCE_INTERNAL_KEY',
+        defaultValue:
+            'aHR0cHM6Ly9wb3J0YWwtYXBpLmp5bGFidGVjaC5jb20uYnIvcG9zLXBheW1lbnRzL2xpY2VuY2UvY2hlY2svaW52b2ljZQ==',
+      ),
+    );
   }
 
   void _showDialog(String title, String message) {
@@ -330,7 +338,8 @@ class _PaymentPageState extends State<PaymentPage> {
               'Configuração do Pagamento',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
+
+            const SizedBox(height: 12),
             TextField(
               controller: _amountController,
               decoration: const InputDecoration(

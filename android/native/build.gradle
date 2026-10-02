@@ -1,0 +1,74 @@
+plugins {
+    id 'com.android.library' version '8.9.1'
+}
+
+def flutterSdkPath = System.getenv("FLUTTER_SDK")
+if (flutterSdkPath == null || flutterSdkPath.trim().isEmpty()) {
+    throw new GradleException("A variável de ambiente FLUTTER_SDK precisa apontar para o diretório do Flutter SDK para compilar o AAR.")
+}
+
+def flutterEngineDir = file("${flutterSdkPath}/bin/cache/artifacts/engine")
+if (!flutterEngineDir.exists()) {
+    throw new GradleException("Não foi encontrado o diretório de artefatos do Flutter em ${flutterEngineDir}. Execute 'flutter precache' e tente novamente.")
+}
+
+def flutterJar = null
+flutterEngineDir.eachFileRecurse { candidate ->
+    if (candidate.name == "flutter.jar" && flutterJar == null) {
+        flutterJar = candidate
+    }
+}
+
+if (flutterJar == null) {
+    throw new GradleException("Não foi possível localizar flutter.jar. Execute 'flutter precache' ou informe manualmente o caminho.")
+}
+
+group = "br.com.jylabtech.cielo_payment_tech"
+version = "1.0.0"
+
+repositories {
+    google()
+    mavenCentral()
+}
+
+android {
+    namespace "br.com.jylabtech.cielo_payment_tech"
+    compileSdk = 36
+
+    defaultConfig {
+        minSdk = 24
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles "consumer-rules.pro"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            debuggable true
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+        }
+    }
+}
+
+dependencies {
+    compileOnly files(flutterJar)
+    implementation 'androidx.annotation:annotation:1.8.0'
+    implementation 'androidx.security:security-crypto:1.1.0-alpha05'
+    testImplementation 'junit:junit:4.13.2'
+    // O org.json do android.jar é stub nos testes JVM.
+    testImplementation 'org.json:json:20240303'
+}
+

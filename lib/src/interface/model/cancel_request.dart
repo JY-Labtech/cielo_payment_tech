@@ -44,4 +44,3 @@ class CancelRequest {
     return base64.encode(encodedText);
   }
 }
-

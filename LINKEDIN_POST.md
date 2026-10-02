@@ -96,7 +96,11 @@ Um plugin Flutter que abstrai toda essa complexidade, oferecendo uma API simples
 
 **Exemplo de uso:**
 ```dart
-final payment = CieloPaymentTech.I.initPayment(handler: handler);
+final payment = CieloPaymentTech.I.initPayment(
+  handler: handler,
+  licenceKey: 'SUA_LICENCE_KEY',
+  licenceInternalKey: 'SUA_LICENCE_INTERNAL_KEY',
+);
 await payment.creditPayment(
   amount: 10000,
   accessToken: "token",
@@ -188,7 +192,11 @@ Apresento o **cielo_payment_tech**:
 **Depois (com o plugin):**
 ```dart
 // 1. Inicializar
-final payment = CieloPaymentTech.I.initPayment(handler: handler);
+final payment = CieloPaymentTech.I.initPayment(
+  handler: handler,
+  licenceKey: 'SUA_LICENCE_KEY',
+  licenceInternalKey: 'SUA_LICENCE_INTERNAL_KEY',
+);
 
 // 2. Processar pagamento
 await payment.creditPayment(
