@@ -5,14 +5,14 @@ import android.net.Uri;
 import android.util.Base64;
 import android.util.Log;
 
-import io.flutter.plugin.common.MethodChannel;
-
 import org.json.JSONObject;
+
+import io.flutter.plugin.common.MethodChannel;
 
 public class CieloTech {
     private static final String TAG = "CieloTech";
-    private MethodChannel channel;
-    private Context context;
+    private final MethodChannel channel;
+    private final Context context;
     private String urlCallback;
 
     public CieloTech(MethodChannel channel, Context context) {
@@ -27,28 +27,24 @@ public class CieloTech {
     public void handleDeepLink(Uri uri) {
         try {
             Log.i(TAG, "Processando deep link: " + uri.toString());
-            
-            // Verifica se é o callback de pagamento (order://payment)
-            if (uri.getScheme() != null && uri.getScheme().equals("order") 
-                && uri.getHost() != null && uri.getHost().equals("payment")) {
-                
+
+            if (uri.getScheme() != null && uri.getScheme().equals("order")
+                    && uri.getHost() != null && uri.getHost().equals("payment")) {
+
                 String response = uri.getQueryParameter("response");
                 String responseCode = uri.getQueryParameter("responsecode");
 
                 if (response != null && !response.isEmpty()) {
                     try {
-                        // Decodifica a resposta base64
                         byte[] decodedBytes = Base64.decode(response.replaceAll("\n", ""), Base64.DEFAULT);
                         String decodedResponse = new String(decodedBytes, "UTF-8");
-                        
+
                         Log.i(TAG, "Resposta decodificada: " + decodedResponse);
 
                         if (responseCode != null) {
-                            // Sucesso
                             JSONObject responseJson = new JSONObject(decodedResponse);
                             channel.invokeMethod("onTransactionSuccess", responseJson.toString());
                         } else {
-                            // Erro
                             JSONObject responseJson = new JSONObject(decodedResponse);
                             String reason = responseJson.optString("reason", "Erro desconhecido no pagamento");
                             channel.invokeMethod("onError", reason);
@@ -58,37 +54,27 @@ public class CieloTech {
                         channel.invokeMethod("onError", "Erro ao processar resposta: " + e.getMessage());
                     }
                 }
-            }
-            // Verifica se é o callback de cancelamento/impressão (order://response)
-            else if (uri.getScheme() != null && uri.getScheme().equals("order") 
-                && uri.getHost() != null && uri.getHost().equals("response")) {
-                
+            } else if (uri.getScheme() != null && uri.getScheme().equals("order")
+                    && uri.getHost() != null && uri.getHost().equals("response")) {
+
                 String response = uri.getQueryParameter("response");
 
                 if (response != null && !response.isEmpty()) {
                     try {
-                        // Decodifica a resposta base64
                         byte[] decodedBytes = Base64.decode(response.replaceAll("\n", ""), Base64.DEFAULT);
                         String decodedResponse = new String(decodedBytes, "UTF-8");
-                        
+
                         Log.i(TAG, "Resposta decodificada: " + decodedResponse);
 
                         JSONObject responseJson = new JSONObject(decodedResponse);
-                        
-                        // Verifica se há erro na resposta
+
                         if (responseJson.has("code") && responseJson.optInt("code", 0) != 0) {
                             String reason = responseJson.optString("reason", "Erro desconhecido na operação");
                             channel.invokeMethod("onError", reason);
                         } else {
-                            // Determina o tipo de operação baseado na resposta
-                            // Se tem campos de cancelamento, é cancelamento
-                            // Caso contrário, pode ser impressão ou outro tipo
                             if (responseJson.has("order") || responseJson.has("id")) {
-                                // É uma resposta de cancelamento
                                 channel.invokeMethod("onCancelSuccess", responseJson.toString());
                             } else {
-                                // É uma resposta de impressão ou outra operação
-                                // Para impressão, não há estrutura específica, então assumimos sucesso
                                 channel.invokeMethod("onPrintSuccess", responseJson.toString());
                             }
                         }
@@ -105,7 +91,7 @@ public class CieloTech {
     }
 
     public void dispose() {
-        // Limpar recursos se necessário
+        // nenhum recurso para liberar
     }
 }
 

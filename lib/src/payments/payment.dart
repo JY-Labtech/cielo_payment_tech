@@ -24,33 +24,40 @@ final class Payment {
     channel.setMethodCallHandler(_handleMethodCall);
   }
 
-  /// Método factory assíncrono para criação controlada
-  /// As chaves de licença são lidas automaticamente do BuildConfig (local.properties)
+  /// Método factory para criação controlada.
   static Payment create({
     required MethodChannel channel,
     required ICieloHandler paymentHandler,
     required String urlCallback,
+    required String licenceKey,
+    required String licenceInternalKey,
   }) {
-    // Se já existe instância, retorna ela diretamente
-    if (_instance != null) {
-      return _instance!;
-    }
-
-    // Cria nova instância
-    final payment = Payment._(
+    _instance ??= Payment._(
       channel: channel,
       paymentHandler: paymentHandler,
       urlCallback: urlCallback,
     );
 
-    // Salva instância
-    _instance = payment;
+    _instance!._configureLicence(
+      licenceKey: licenceKey,
+      licenceInternalKey: licenceInternalKey,
+    );
 
-    // Inicializa o payment no nativo
-    // As chaves de licença são lidas automaticamente do BuildConfig
-    channel.invokeMethod("initPayment");
+    return _instance!;
+  }
 
-    return payment;
+  void _configureLicence({
+    required String licenceKey,
+    required String licenceInternalKey,
+  }) {
+    channel.invokeMethod("initPayment", {
+      "licenceKey": licenceKey,
+      "licenceInternalKey": licenceInternalKey,
+      "urlCallback": urlCallback,
+    }).catchError((Object e) async {
+      await paymentHandler.onError('Erro ao configurar licença: $e');
+      return null;
+    });
   }
 
   Future<void> _handleMethodCall(MethodCall call) async {

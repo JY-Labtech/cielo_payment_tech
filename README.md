@@ -1,7 +1,7 @@
 # cielo_payment_tech
 
 <div align="center">
-  <img src="assets/cielo_payment_tech.png" alt="Stone" height="300" />
+  <img src="assets/cielo_payment_tech.png" alt="Cielo Payment Tech" height="300" />
 </div>
 
 ---
@@ -9,8 +9,6 @@
 ## 🚨 Aviso
 
 > **Este plugin é _não oficial_** e foi desenvolvido de forma independente para facilitar a integração de pagamentos via SDK da Cielo em dispositivos Android Smart POS.
-
----
 
 Plugin Flutter para facilitar a integração com o SDK de pagamentos da Cielo através do LIO.
 
@@ -35,40 +33,18 @@ Adicione a dependência no seu `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  cielo_payment_tech:
-    path: ../cielo_payment_tech # ou use a versão do pub.dev quando disponível
+  cielo_payment_tech: ^2.0.0
 ```
 
 ## Configuração Android
 
-### 1. Configurar Chaves de Licença
+### 1. Enviar as chaves de licença em tempo de execução
 
-O plugin possui um sistema de licenciamento integrado que valida automaticamente a licença antes de permitir o uso.
-
-**Importante:** Adicione as chaves de licença no arquivo `android/local.properties` do **plugin** (não do app que usa o plugin):
-
-```properties
-licenceKey=SUA_LICENCE_KEY
-licenceInternalKey=***REMOVIDO***
-```
-
-**Onde configurar:**
-
-- Se você está desenvolvendo o plugin: `cielo_payment_tech/android/local.properties`
-- Se você está usando o plugin: as chaves devem estar no plugin, não no seu app
-
-**Importante:**
-
-- O arquivo `local.properties` é local e não deve ser versionado no Git (já está no `.gitignore`)
-- Se não configurar as chaves, o build falhará com uma mensagem de erro clara
-- As chaves também podem ser definidas via variáveis de ambiente: `LICENCE_KEY` e `LICENCE_INTERNAL_KEY`
-- A validação da licença acontece automaticamente no nativo antes de cada pagamento
-- A licença é armazenada de forma criptografada no dispositivo usando `EncryptedSharedPreferences`
-- A licença válida é armazenada em cache por 7 dias para melhor performance
+As chaves não são mais configuradas no `local.properties`. Elas devem ser fornecidas pelo app ao chamar `CieloPaymentTech.I.initPayment` (por exemplo, lidas de um backend seguro). Veja a seção **Licença do plugin** para saber onde adquirir a chave e qual valor usar em `licenceInternalKey`.
 
 ### 2. Configurar Intent Filter
 
-Adicione o intent filter no `AndroidManifest.xml` do seu **app** (na `MainActivity`) para receber os callbacks de pagamento:
+Adicione os intent filters no `AndroidManifest.xml` do seu **app** (na `MainActivity`) para receber os callbacks do LIO. O host `payment` recebe o retorno dos pagamentos e o host `response` recebe o retorno de cancelamentos e impressões:
 
 ```xml
 <activity
@@ -84,6 +60,16 @@ Adicione o intent filter no `AndroidManifest.xml` do seu **app** (na `MainActivi
         <category android:name="android.intent.category.BROWSABLE" />
         <data
             android:host="payment"
+            android:scheme="order" />
+    </intent-filter>
+
+    <!-- Retorno de cancelamento e impressão -->
+    <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data
+            android:host="response"
             android:scheme="order" />
     </intent-filter>
 </activity>
@@ -120,6 +106,18 @@ class MyPaymentHandler implements ICieloHandler {
   }
 
   @override
+  Future<void> onCancelSuccess(Map<String, dynamic> response) async {
+    // Retorno do LIO após um cancelamento concluído
+    print('Cancelamento concluído: $response');
+  }
+
+  @override
+  Future<void> onPrintSuccess(Map<String, dynamic> response) async {
+    // Retorno do LIO após uma impressão concluída
+    print('Impressão concluída: $response');
+  }
+
+  @override
   Future<void> onError(String message) async {
     // message contém a descrição do erro
     print('Erro no pagamento: $message');
@@ -130,7 +128,7 @@ class MyPaymentHandler implements ICieloHandler {
   @override
   Future<void> onMessage(String message) async {
     // message contém mensagens informativas durante o processo
-    // Exemplo: "Verificando licença...", "Pagamento iniciado...", etc.
+    // Exemplo: "Licença recebida. Validando...", "Licença ativada", "Pagamento iniciado...", etc.
     print('Mensagem: $message');
 
     // Atualizar status na UI, mostrar loading, etc.
@@ -146,10 +144,11 @@ import 'package:cielo_payment_tech/cielo_payment_tech.dart';
 // Criar o handler
 final handler = MyPaymentHandler();
 
-// Inicializar o plugin
-// As chaves de licença são lidas automaticamente do local.properties
+// Inicializar o plugin informando as chaves de licença
 final payment = CieloPaymentTech.I.initPayment(
   handler: handler,
+  licenceKey: 'SUA_LICENCE_KEY', // chave obtida em https://portal.jylabtech.com.br
+  // licenceInternalKey é opcional (padrão: CieloPaymentTech.licenceCheck)
   urlCallback: "order://payment", // Opcional, padrão é "order://payment"
 );
 
@@ -158,9 +157,9 @@ final payment = CieloPaymentTech.I.initPayment(
 
 **Nota:**
 
-- As chaves de licença são lidas automaticamente do arquivo `local.properties`. Não é necessário passá-las via código Dart.
+- As chaves precisam ser fornecidas em tempo de execução ao chamar `initPayment`. Recomenda-se obtê-las de uma API segura.
 - A inicialização deve ser feita uma vez, geralmente no `initState()` ou `main()`
-- O plugin valida a licença automaticamente antes de permitir qualquer pagamento
+- O plugin valida a licença automaticamente antes de cada pagamento, cancelamento e impressão. Sem licença válida a operação não é executada e o erro `LICENCE_ERROR` chega em `onError`
 
 ### 3. Realizar Pagamento
 
@@ -326,6 +325,28 @@ if (type != null) {
 - **Cartão Loja:** `PaymentType.cartaoLojaAvista.code`, `PaymentType.cartaoLojaParceladoLoja.code`, etc.
 - **Outros:** `PaymentType.pix.code`, `PaymentType.preAutorizacao.code`, etc.
 
+#### Cancelamento e Impressão
+
+```dart
+// Cancelar um pagamento (retorno via onCancelSuccess ou onError)
+await payment.cancelPayment(
+  cancelRequest: CancelRequest(
+    id: "order_id",
+    clientId: "seu_client_id",
+    accessToken: "seu_access_token",
+    cieloCode: "cielo_code_do_pagamento",
+    authCode: "auth_code_do_pagamento",
+    value: 10000,
+  ),
+);
+
+// Imprimir texto ou imagem (retorno via onPrintSuccess ou onError)
+await payment.printText(text: "Comprovante de teste");
+await payment.printImage(imagePath: "/caminho/da/imagem.png");
+```
+
+Cancelamento e impressão usam `order://response` como callback padrão. Todas as operações (pagamento, cancelamento e impressão) validam a licença antes de abrir o LIO.
+
 ### 4. Estrutura de Resposta
 
 Quando o pagamento é processado com sucesso, o método `onTransactionSuccess` recebe um `Map<String, dynamic>` com a seguinte estrutura:
@@ -397,7 +418,7 @@ O plugin pode retornar erros em diferentes situações:
 - **Erro de Pagamento**: Quando o pagamento é recusado ou cancelado
 - **Erro de Rede**: Quando há problemas de comunicação
 
-Todos os erros são retornados via `onError` no handler:
+Todos os erros são retornados via `onError` no handler, e o método chamado (`checkout`, `creditPayment`, `cancelPayment`, `print`...) retorna `false`. Quando a licença é recusada, a mensagem chega no formato `Erro ao iniciar pagamento: PlatformException(LICENCE_ERROR, <mensagem>, ...)` (ou `Erro ao iniciar cancelamento`/`Erro ao iniciar impressão`):
 
 ```dart
 @override
@@ -412,14 +433,66 @@ Future<void> onError(String message) async {
 }
 ```
 
+## Licença do plugin
+
+O plugin só executa pagamentos, cancelamentos e impressões com uma licença válida e ativa. A validação é sempre feita no servidor oficial da JY Labtech (`https://licence-server.invalid/pos-payments/licence/check`).
+
+### Onde adquirir
+
+- Crie a conta ou entre em **[portal.jylabtech.com.br](https://portal.jylabtech.com.br)** (mesmo e-mail e senha do portal antigo).
+- O produto é a **Licença plugin de pagamento**, que vale para qualquer plugin de pagamento da JY Labtech (Cielo, Stone, etc.).
+- Planos:
+  - **debug** (cortesia): concedido automaticamente no cadastro, válido por 365 dias e para até 2 aparelhos. Ideal para desenvolvimento e homologação.
+  - **mensal**: cobrado por dispositivo.
+- No portal você acompanha os aparelhos que usam a licença e pode desativá-los. Um aparelho desativado deixa de ser aceito.
+
+As chaves de licença já existentes continuam valendo, com o mesmo valor. Chaves novas (formato `JYL-...`) também funcionam.
+
+### Como configurar
+
+Passe a chave ao chamar `initPayment`:
+
+| Parâmetro | Valor |
+|---|---|
+| `licenceKey` | Obrigatório. A chave da sua licença, copiada do portal. |
+| `licenceInternalKey` | Opcional. Padrão: `CieloPaymentTech.licenceCheck` (`***REMOVIDO***`, base64 de `https://licence-server.invalid/pos-payments/licence/check`). |
+
+O plugin sempre valida no servidor oficial da JY Labtech. O `licenceInternalKey` (URL em texto ou em base64) só é aceito se apontar para `https://licence-server.invalid/pos-payments/licence/check` (ou as variantes `/invoice` e `/subscription`). Qualquer outro valor é ignorado e o servidor oficial é usado no lugar.
+
+> **Migração:** o valor antigo do `licenceInternalKey` (que começa com `***REMOVIDO***...`) é ignorado: a validação vai para o servidor novo. A licença guardada no aparelho com o valor antigo é descartada e validada de novo online na primeira operação. Pode remover o parâmetro do seu código.
+
+### Como a validação funciona
+
+- O aparelho é identificado principalmente pelo `ANDROID_ID`. Cada aparelho novo ocupa uma vaga da licença.
+- A validação acontece no nativo antes de cada pagamento, cancelamento ou impressão. Com licença inválida a operação não é executada. A resposta do LIO (deep link) de uma operação já iniciada é sempre repassada ao app.
+- A licença só libera o uso se estiver dentro da validade e não estiver vencida, inativa/suspensa ou cancelada. Uma resposta do servidor com licença nessas condições também bloqueia.
+- Depois de validada, a licença fica guardada no aparelho (criptografada com `EncryptedSharedPreferences`) e funciona offline até a data de vencimento, por no máximo 7 dias sem nova consulta ao servidor. Depois disso, o aparelho precisa de internet para validar de novo. Uma licença guardada com data no futuro (relógio do aparelho adulterado) é descartada.
+- Trocar a `licenceKey` força uma nova consulta ao servidor.
+- A consulta ao servidor roda fora da thread principal, com timeout de 15 segundos.
+
+### Erros de licença
+
+| HTTP | Situação | O que fazer |
+|---|---|---|
+| 404 | Licença não encontrada | Confira a `licenceKey` (sem espaços ou quebras de linha). |
+| 412 | Limite de aparelhos atingido ou aparelho desativado | Libere ou reative o aparelho no portal, ou contrate mais dispositivos. |
+| 428 | Licença vencida, suspensa ou cancelada | Renove ou regularize o pagamento no portal. |
+| 403 | Requisição sem chave | Verifique se `licenceKey` foi informada no `initPayment`. |
+| 400 | Aparelho sem identificador estável | Verifique se o aparelho expõe o `ANDROID_ID`. |
+| 429 | Muitas tentativas em pouco tempo | Aguarde alguns instantes e tente de novo. |
+
+A mensagem retornada pelo servidor (campo `message`) é repassada para o `onError` com o código `LICENCE_ERROR`. Se a resposta não tiver mensagem, ela vira `Erro ao validar licença (HTTP <código>)`. Se o servidor não estiver acessível e não houver licença válida guardada, a mensagem será o erro de rede (por exemplo, `Tempo esgotado ao validar a licença...`). Uma licença recusada pelas regras do plugin gera `Licença vencida.`, `Licença inativa ou suspensa.` ou `Licença cancelada.`.
+
 ## Recursos
 
 ### Tipos de Pagamento Suportados
 
 **Débito:**
+
 - ✅ Débito à vista
 
 **Crédito:**
+
 - ✅ Crédito à vista
 - ✅ Crédito parcelado loja
 - ✅ Crédito parcelado administradora
@@ -428,6 +501,7 @@ Future<void> onError(String message) async {
 - ✅ Crédito crediário
 
 **Vouchers:**
+
 - ✅ Voucher alimentação
 - ✅ Voucher refeição
 - ✅ Voucher automotivo
@@ -436,6 +510,7 @@ Future<void> onError(String message) async {
 - ✅ Voucher auto
 
 **Cartão Loja:**
+
 - ✅ Cartão loja à vista
 - ✅ Cartão loja parcelado loja
 - ✅ Cartão loja parcelado
@@ -444,6 +519,7 @@ Future<void> onError(String message) async {
 - ✅ Cartão loja pagamento fatura dinheiro
 
 **Outros:**
+
 - ✅ PIX
 - ✅ Pré-autorização
 - ✅ Crediário venda
@@ -469,7 +545,7 @@ O plugin segue a mesma estrutura do projeto Stone Payment Tech:
 - `lib/src/payments/` - Lógica de pagamento
   - `payment.dart` - Classe Payment com métodos de pagamento
 - `lib/src/cielo_payment_tech.dart` - Classe principal do plugin
-- `android/src/main/java/br/com/jylabtech/cielo_payment_tech/` - Código nativo Android
+- `android/native/src/main/java/br/com/jylabtech/cielo_payment_tech/` - Código nativo Android (compilado no AAR)
   - `licence/` - Sistema de licenciamento
   - `payments/` - Presenter de pagamentos
   - `core/` - Classes core do plugin
@@ -479,7 +555,7 @@ O plugin segue a mesma estrutura do projeto Stone Payment Tech:
 - Flutter >= 3.3.0
 - Android SDK 24+ (minSdk 24)
 - LIO instalado no dispositivo
-- Chaves de licença configuradas no `local.properties`
+- Chaves de licença válidas fornecidas em tempo de execução (ver `initPayment`)
 
 ## Exemplo Completo
 
@@ -505,7 +581,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   void _initializePayment() {
     final handler = MyPaymentHandler();
-    _payment = CieloPaymentTech.I.initPayment(handler: handler);
+    _payment = CieloPaymentTech.I.initPayment(
+      handler: handler,
+      licenceKey: 'SUA_LICENCE_KEY',
+    );
   }
 
   Future<void> _processPayment() async {
@@ -547,6 +626,16 @@ class MyPaymentHandler implements ICieloHandler {
   }
 
   @override
+  Future<void> onCancelSuccess(Map<String, dynamic> response) async {
+    print('Cancelamento concluído: $response');
+  }
+
+  @override
+  Future<void> onPrintSuccess(Map<String, dynamic> response) async {
+    print('Impressão concluída: $response');
+  }
+
+  @override
   Future<void> onError(String message) async {
     print('Erro: $message');
   }
@@ -564,9 +653,9 @@ Veja também o exemplo completo em `example/lib/payment_page.dart` para uma impl
 
 ### Erro: "LicenceKey não encontrado"
 
-- Verifique se o arquivo `android/local.properties` existe
-- Confirme que as chaves `licenceKey` e `licenceInternalKey` estão configuradas
-- Certifique-se de que não há espaços extras nas chaves
+- Verifique se `CieloPaymentTech.I.initPayment` está sendo chamado com `licenceKey` preenchida
+- Confirme que as chaves estão chegando corretamente do seu backend/configuração segura
+- Certifique-se de remover espaços extras ou caracteres inválidos nas chaves
 
 ### Erro: "App LIO não instalado"
 
@@ -581,9 +670,30 @@ Veja também o exemplo completo em `example/lib/payment_page.dart` para uma impl
 
 ### Licença não é validada
 
-- Verifique se as chaves estão corretas no `local.properties`
-- Confirme que há conexão com a internet para validação inicial
-- Verifique os logs para mais detalhes sobre o erro
+- Garanta que o app chamou `initPayment` antes de qualquer operação de pagamento/cancelamento/impressão
+- Verifique no [portal](https://portal.jylabtech.com.br) se a licença está ativa, dentro da validade e se o aparelho não foi desativado ou excedeu o limite
+- Confirme que há conexão com a internet para a primeira validação (e a cada 7 dias)
+- Consulte a tabela **Erros de licença** para a mensagem recebida em `onError`
+
+### Erro: "Licença não configurada"
+
+- `initPayment` não foi chamado, ou foi chamado com `licenceKey` vazia
+
+## Testes
+
+Testes Dart (MethodChannel mockado):
+
+```bash
+flutter test
+```
+
+Testes JVM da validação de licença no nativo (`android/native/src/test`), usando o wrapper do example e a JDK 17:
+
+```bash
+FLUTTER_SDK=<caminho do Flutter SDK> example/android/gradlew -p android/native testDebugUnitTest
+```
+
+Depois de alterar o código em `android/native`, gere de novo o binário distribuído em `android/libs` com `make build-native` (ou `sh scripts/build_android_aar.sh`).
 
 ## Contribuindo
 
@@ -612,9 +722,11 @@ entre em contato com JYLabtech.
 
 ## 📞 Suporte
 
-Para questões relacionadas ao SDK Zoop, consulte a documentação oficial da Zoop.
+Para questões relacionadas ao LIO e ao SDK da Cielo, consulte a documentação oficial da Cielo.
 
-## Para questões específicas sobre este plugin, verifique os issues do repositório ou entre em contato com a equipe de desenvolvimento.
+Para licenças, acesse [portal.jylabtech.com.br](https://portal.jylabtech.com.br).
+
+Para questões específicas sobre este plugin, verifique os issues do repositório ou entre em contato com a equipe de desenvolvimento.
 
 ---
 

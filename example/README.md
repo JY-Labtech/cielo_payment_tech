@@ -1,16 +1,35 @@
-# cielo_payment_tech_example
+# Exemplo `cielo_payment_tech`
 
-Demonstrates how to use the cielo_payment_tech plugin.
+Aplicativo de exemplo que demonstra como integrar o plugin `cielo_payment_tech`.
 
-## Getting Started
+## Como testar
 
-This project is a starting point for a Flutter application.
+1. Confirme que os binários nativos (`android/libs/cielo_payment_tech-release.aar` e `cielo_payment_tech-native.jar`) estão atualizados.
+2. Conecte um Smart POS compatível com o SDK da Cielo.
+3. Instale e abra o app de exemplo informando a sua chave de licença:
 
-A few resources to get you started if this is your first Flutter project:
+```bash
+flutter run --dart-define=CIELO_LICENCE_KEY=sua_chave_aqui
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+O `CIELO_LICENCE_INTERNAL_KEY` é opcional (o padrão já aponta para o servidor de licenças da JY Labtech).
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Inicialização do plugin
+
+As chaves de licença agora devem ser passadas diretamente pelo código Flutter:
+
+```dart
+final payment = CieloPaymentTech.I.initPayment(
+  handler: MyPaymentHandler(),
+  licenceKey: 'SUA_LICENCE_KEY',
+  licenceInternalKey:
+      '***REMOVIDO***',
+  urlCallback: 'order://payment',
+);
+```
+
+A `licenceKey` é obtida em https://portal.jylabtech.com.br (o cadastro inclui um plano debug de cortesia para até 2 aparelhos). O `licenceInternalKey` acima aponta para `https://licence-server.invalid/pos-payments/licence/check`.
+
+> **Importante:** Não armazene `licenceKey` e `licenceInternalKey` em `local.properties`. Busque-as de forma segura no seu backend ou outro serviço protegido e injete-as em tempo de execução.
+
+Confira `lib/payment_page.dart` para um fluxo completo de pagamento, cancelamento e impressão.

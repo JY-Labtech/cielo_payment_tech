@@ -1,30 +1,6 @@
 group = "br.com.jylabtech.cielo_payment_tech"
 version = "1.0"
 
-// Lê propriedades do local.properties
-def localProps = new Properties()
-def localPropertiesFile = rootProject.file('local.properties')
-if (localPropertiesFile.exists()) {
-    localPropertiesFile.withReader('UTF-8') { reader ->
-        localProps.load(reader)
-    }
-}
-
-// Licence Keys - lê do local.properties ou variáveis de ambiente
-def licenceKey = System.env.LICENCE_KEY ?: localProps.getProperty("licenceKey") ?: ""
-def licenceInternalKey = System.env.LICENCE_INTERNAL_KEY ?: localProps.getProperty("licenceInternalKey") ?: ""
-
-if (!licenceKey || licenceKey == "") {
-    throw new Exception("LicenceKey não encontrado!! Adicione 'licenceKey=SUA_CHAVE' no arquivo local.properties")
-}
-
-if (!licenceInternalKey || licenceInternalKey == "") {
-    throw new Exception("LicenceInternalKey não encontrado!! Adicione 'licenceInternalKey=SUA_CHAVE_INTERNA' no arquivo local.properties")
-}
-
-println "licenceKey: $licenceKey"
-println "licenceInternalKey: $licenceInternalKey"
-
 buildscript {
     repositories {
         google()
@@ -45,41 +21,33 @@ rootProject.allprojects {
 
 apply plugin: "com.android.library"
 
+def nativeJarFiles = fileTree(dir: "libs", include: ["*-native.jar"]).files
+if (nativeJarFiles.isEmpty()) {
+    throw new GradleException("Nenhum artefato nativo encontrado em android/libs. Execute scripts/build_android_aar.sh para gerar o binário.")
+}
+
 android {
     namespace = "br.com.jylabtech.cielo_payment_tech"
-
     compileSdk = 36
+
+    defaultConfig {
+        minSdk = 24
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
 
-    buildFeatures {
-        buildConfig = true
-    }
-
-    defaultConfig {
-        minSdk = 24
-        buildConfigField "String", "LICENCE_KEY", "\"${licenceKey}\""
-        buildConfigField "String", "LICENCE_INTERNAL_KEY", "\"${licenceInternalKey}\""
-    }
-
     testOptions {
-        unitTests.all {
-            testLogging {
-               events "passed", "skipped", "failed", "standardOut", "standardError"
-               outputs.upToDateWhen {false}
-               showStandardStreams = true
-            }
-        }
+        unitTests.returnDefaultValues = true
     }
 }
 
 dependencies {
+    implementation fileTree(dir: "libs", include: ["*-native.jar"])
+    implementation("androidx.security:security-crypto:1.1.0-alpha05")
+
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.mockito:mockito-core:5.0.0")
-    
-    // Dependências para módulo de licença
-    implementation("androidx.security:security-crypto:1.1.0-alpha03")
 }
