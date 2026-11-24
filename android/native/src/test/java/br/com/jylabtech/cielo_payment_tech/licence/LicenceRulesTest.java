@@ -204,6 +204,42 @@ public class LicenceRulesTest {
     }
 
     @Test
+    public void refusalsAreDefinitiveAndOutagesAreNot() {
+        for (int code : new int[]{404, 412, 428, 403, 400}) {
+            assertTrue("HTTP " + code, LicenceRules.fromHttpResponse(code, "{\"message\":\"x\"}", now).isRejectedByServer());
+        }
+        for (int code : new int[]{408, 429, 500, 502, 503, 204}) {
+            assertFalse("HTTP " + code, LicenceRules.fromHttpResponse(code, "{\"message\":\"x\"}", now).isRejectedByServer());
+        }
+        assertTrue(LicenceRules.fromHttpResponse(200, coreLicenceJson("2026-12-31T23:59:59", false, false, true), now).isRejectedByServer());
+        assertTrue(LicenceRules.fromHttpResponse(200, coreLicenceJson("2026-09-01T00:00:00", false, false, false), now).isRejectedByServer());
+        assertTrue(LicenceRules.fromHttpResponse(200, coreLicenceJson("2026-12-31T23:59:59", false, true, false), now).isRejectedByServer());
+        assertTrue(LicenceRules.fromHttpResponse(200, "{\"licenceEncrypt\":\"" + LICENCE_KEY + "\"}", now).isRejectedByServer());
+        assertFalse(LicenceRules.fromHttpResponse(200, coreLicenceJson("2026-12-31T23:59:59", false, false, false), now).isRejectedByServer());
+        // corpo ilegível (proxy/captive portal) não é recusa da licença
+        assertFalse(LicenceRules.fromHttpResponse(200, "<html>oops</html>", now).isRejectedByServer());
+        assertFalse(LicenceRules.fromHttpResponse(200, null, now).isRejectedByServer());
+    }
+
+    @Test
+    public void customerBlockedReasonHasClearMessage() {
+        LicenceResult r = LicenceRules.fromHttpResponse(428,
+                "{\"message\":\"A data de expiração da licença é inválida. [-]\",\"reason\":\"customer_blocked\"}", now);
+        assertTrue(r.isRejectedByServer());
+        assertEquals("Cliente bloqueado. Entre em contato com a JY Labtech.", r.getErrorMessage());
+    }
+
+    @Test
+    public void definitiveRejectionCodes() {
+        for (int code : new int[]{400, 401, 402, 403, 404, 409, 410, 412, 423, 428}) {
+            assertTrue("HTTP " + code, LicenceRules.isDefinitiveRejection(code));
+        }
+        for (int code : new int[]{200, 204, 301, 408, 429, 500, 502, 503, 504}) {
+            assertFalse("HTTP " + code, LicenceRules.isDefinitiveRejection(code));
+        }
+    }
+
+    @Test
     public void newLicenceResultStartsAsError() {
         LicenceResult r = new LicenceResult();
         assertFalse(r.isSuccess());
@@ -214,20 +250,38 @@ public class LicenceRulesTest {
 
     @Test
     public void validCacheIsUsable() {
-        Date savedAt = new Date(now.getTime() - TimeUnit.DAYS.toMillis(2));
+        Date savedAt = new Date(now.getTime() - TimeUnit.HOURS.toMillis(48));
         assertTrue(LicenceRules.isCacheUsable(cache("2026-12-31T23:59:59", savedAt), now, LICENCE_KEY, CORE));
     }
 
     @Test
-    public void cacheExactlySevenDaysOldIsUsable() {
-        Date savedAt = new Date(now.getTime() - TimeUnit.DAYS.toMillis(7));
+    public void cacheExactly72HoursOldIsUsable() {
+        Date savedAt = new Date(now.getTime() - TimeUnit.HOURS.toMillis(72));
         assertTrue(LicenceRules.isCacheUsable(cache("2026-12-31T23:59:59", savedAt), now, LICENCE_KEY, CORE));
     }
 
     @Test
-    public void cacheOlderThanSevenDaysIsNotUsable() {
-        Date savedAt = new Date(now.getTime() - TimeUnit.DAYS.toMillis(7) - 1000);
+    public void cacheOlderThan72HoursIsNotUsable() {
+        Date savedAt = new Date(now.getTime() - TimeUnit.HOURS.toMillis(72) - 1000);
         assertFalse(LicenceRules.isCacheUsable(cache("2026-12-31T23:59:59", savedAt), now, LICENCE_KEY, CORE));
+    }
+
+    @Test
+    public void cacheOfFourDaysIsNoLongerUsable() {
+        Date savedAt = new Date(now.getTime() - TimeUnit.DAYS.toMillis(4));
+        assertFalse(LicenceRules.isCacheUsable(cache("2026-12-31T23:59:59", savedAt), now, LICENCE_KEY, CORE));
+    }
+
+    @Test
+    public void shouldRevalidateOnFirstCheckOfProcessAndAfterInterval() {
+        CheckLicenceEntity c = cache("2026-12-31T23:59:59", new Date(now.getTime() - TimeUnit.MINUTES.toMillis(10)));
+        assertTrue(LicenceRules.shouldRevalidate(c, false, now));
+        assertFalse(LicenceRules.shouldRevalidate(c, true, now));
+        assertTrue(LicenceRules.shouldRevalidate(null, true, now));
+        c.setSavedLocalDatabaseAt(new Date(now.getTime() - LicenceRules.REVALIDATE_INTERVAL_MILLIS));
+        assertTrue(LicenceRules.shouldRevalidate(c, true, now));
+        c.setSavedLocalDatabaseAt(null);
+        assertTrue(LicenceRules.shouldRevalidate(c, true, now));
     }
 
     @Test
