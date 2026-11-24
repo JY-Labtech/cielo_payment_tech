@@ -1,10 +1,9 @@
-## Não lançado
+## 2.1.0
 
 - Licença conforme o contrato do jylabtech_core (JYN-234): o cache offline vale por no máximo 72 horas (antes 7 dias) e só é usado quando o servidor não responde (sem internet, timeout, 408, 429, 5xx).
 - A primeira operação depois de abrir o app consulta o servidor, e a licença é revalidada a cada 4 horas de uso.
 - Recusa do servidor (cliente bloqueado, licença vencida/cancelada/suspensa, não encontrada, aparelho desativado) apaga o cache e bloqueia na hora.
 - A resposta do LIO (deep link) de uma operação já iniciada continua sendo sempre repassada ao app, sem passar pela checagem de licença (para não perder transação aprovada).
-- O binário `android/libs/cielo_payment_tech-native.jar` / `cielo_payment_tech-release.aar` precisa ser regerado (`make build-native` ou `scripts/build_android_aar.sh`) na publicação.
 
 ## 2.0.0
 

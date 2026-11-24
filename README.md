@@ -33,7 +33,7 @@ Adicione a dependência no seu `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  cielo_payment_tech: ^2.0.0
+  cielo_payment_tech: ^2.1.0
 ```
 
 ## Configuração Android
