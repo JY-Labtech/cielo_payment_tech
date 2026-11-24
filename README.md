@@ -466,7 +466,9 @@ O plugin sempre valida no servidor oficial da JY Labtech. O `licenceInternalKey`
 - O aparelho é identificado principalmente pelo `ANDROID_ID`. Cada aparelho novo ocupa uma vaga da licença.
 - A validação acontece no nativo antes de cada pagamento, cancelamento ou impressão. Com licença inválida a operação não é executada. A resposta do LIO (deep link) de uma operação já iniciada é sempre repassada ao app.
 - A licença só libera o uso se estiver dentro da validade e não estiver vencida, inativa/suspensa ou cancelada. Uma resposta do servidor com licença nessas condições também bloqueia.
-- Depois de validada, a licença fica guardada no aparelho (criptografada com `EncryptedSharedPreferences`) e funciona offline até a data de vencimento, por no máximo 7 dias sem nova consulta ao servidor. Depois disso, o aparelho precisa de internet para validar de novo. Uma licença guardada com data no futuro (relógio do aparelho adulterado) é descartada.
+- **Revalidação**: a primeira operação depois de abrir o app sempre consulta o servidor; depois, a licença é consultada de novo a cada **4 horas** de uso.
+- **Bloqueio imediato**: se o servidor recusar a licença (cliente bloqueado no portal, licença vencida, cancelada ou suspensa, não encontrada, aparelho desativado ou limite de aparelhos), a licença guardada é apagada e as operações passam a falhar com `LICENCE_ERROR` na hora.
+- **Cache offline**: depois de validada, a licença fica guardada no aparelho (criptografada com `EncryptedSharedPreferences`). Ela só é usada quando o servidor não responde (sem internet, timeout, 408, 429 ou erro 5xx) e por no máximo **72 horas** desde a última validação online, desde que continue dentro da validade. Depois de uma falha de rede o plugin espera 5 minutos antes de tentar o servidor de novo. Sem internet e sem licença guardada válida, as operações falham com `LICENCE_ERROR`. Uma licença guardada com data no futuro (relógio do aparelho adulterado) é descartada.
 - Trocar a `licenceKey` força uma nova consulta ao servidor.
 - A consulta ao servidor roda fora da thread principal, com timeout de 15 segundos.
 
@@ -672,7 +674,7 @@ Veja também o exemplo completo em `example/lib/payment_page.dart` para uma impl
 
 - Garanta que o app chamou `initPayment` antes de qualquer operação de pagamento/cancelamento/impressão
 - Verifique no [portal](https://portal.jylabtech.com.br) se a licença está ativa, dentro da validade e se o aparelho não foi desativado ou excedeu o limite
-- Confirme que há conexão com a internet para a primeira validação (e a cada 7 dias)
+- Confirme que há conexão com a internet ao abrir o app (a primeira operação consulta o servidor). Sem internet, a operação só funciona se houver uma validação bem-sucedida nas últimas 72 horas
 - Consulte a tabela **Erros de licença** para a mensagem recebida em `onError`
 
 ### Erro: "Licença não configurada"
