@@ -2,6 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:cielo_payment_tech/cielo_payment_tech.dart';
 import 'payment_handler.dart';
 
+/// Credenciais da aplicação Cielo, informadas no build:
+/// `flutter run --dart-define=CIELO_ACCESS_TOKEN=... --dart-define=CIELO_CLIENT_ID=...`
+const _cieloAccessToken = String.fromEnvironment('CIELO_ACCESS_TOKEN');
+const _cieloClientId = String.fromEnvironment('CIELO_CLIENT_ID');
+
+/// Opcional: `--dart-define=CIELO_MERCHANT_CODE=...`.
+const _cieloMerchantCodeValue = String.fromEnvironment('CIELO_MERCHANT_CODE');
+const String? _cieloMerchantCode = _cieloMerchantCodeValue == '' ? null : _cieloMerchantCodeValue;
+
+const _hasCieloCredentials = _cieloAccessToken != '' && _cieloClientId != '';
+
+const _missingCredentialsMessage =
+    'Credenciais Cielo não informadas. Rode o exemplo com '
+    '--dart-define=CIELO_ACCESS_TOKEN=... --dart-define=CIELO_CLIENT_ID=...';
+
 class PaymentPage extends StatefulWidget {
   const PaymentPage({super.key});
 
@@ -92,15 +107,7 @@ class _PaymentPageState extends State<PaymentPage> {
       },
     );
 
-    _payment = CieloPaymentTech.I.initPayment(
-      handler: handler,
-      licenceKey: const String.fromEnvironment('CIELO_LICENCE_KEY'),
-      licenceInternalKey: const String.fromEnvironment(
-        'CIELO_LICENCE_INTERNAL_KEY',
-        defaultValue:
-            '***REMOVIDO***',
-      ),
-    );
+    _payment = CieloPaymentTech.I.initPayment(handler: handler);
   }
 
   void _showDialog(String title, String message) {
@@ -120,6 +127,10 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Future<void> _processPayment(PaymentType paymentType) async {
+    if (!_hasCieloCredentials) {
+      _showDialog('Credenciais ausentes', _missingCredentialsMessage);
+      return;
+    }
     if (_amountController.text.isEmpty) {
       _showDialog('Erro', 'Por favor, informe o valor do pagamento');
       return;
@@ -151,9 +162,9 @@ class _PaymentPageState extends State<PaymentPage> {
       if (paymentType == PaymentType.creditoAvista) {
         success = await _payment!.creditPayment(
           amount: amount,
-          accessToken: '***REMOVIDO***',
-          clientId: '***REMOVIDO***',
-          merchantCode: '***REMOVIDO***',
+          accessToken: _cieloAccessToken,
+          clientId: _cieloClientId,
+          merchantCode: _cieloMerchantCode,
           email: _emailController.text.isEmpty ? null : _emailController.text,
           installments: 0,
           items: items,
@@ -161,9 +172,9 @@ class _PaymentPageState extends State<PaymentPage> {
       } else if (paymentType == PaymentType.debitoAvista) {
         success = await _payment!.debitPayment(
           amount: amount,
-          accessToken: '***REMOVIDO***',
-          clientId: '***REMOVIDO***',
-          merchantCode: '***REMOVIDO***',
+          accessToken: _cieloAccessToken,
+          clientId: _cieloClientId,
+          merchantCode: _cieloMerchantCode,
           email: _emailController.text.isEmpty ? null : _emailController.text,
           items: items,
         );
@@ -187,6 +198,10 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Future<void> _processCancel() async {
+    if (!_hasCieloCredentials) {
+      _showDialog('Credenciais ausentes', _missingCredentialsMessage);
+      return;
+    }
     if (_orderIdController.text.isEmpty) {
       _showDialog('Erro', 'Por favor, informe o ID da ordem');
       return;
@@ -216,8 +231,8 @@ class _PaymentPageState extends State<PaymentPage> {
     try {
       final cancelRequest = CancelRequest(
         id: _orderIdController.text,
-        clientId: '***REMOVIDO***',
-        accessToken: '***REMOVIDO***',
+        clientId: _cieloClientId,
+        accessToken: _cieloAccessToken,
         cieloCode: _cieloCodeController.text,
         authCode: _authCodeController.text,
         value: cancelValue,
@@ -334,6 +349,19 @@ class _PaymentPageState extends State<PaymentPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (!_hasCieloCredentials)
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade100,
+                  border: Border.all(color: Colors.orange),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  '⚠️ $_missingCredentialsMessage\nPagamento e cancelamento ficam desativados.',
+                ),
+              ),
             const Text(
               'Configuração do Pagamento',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),

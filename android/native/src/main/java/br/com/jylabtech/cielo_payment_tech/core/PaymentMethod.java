@@ -5,8 +5,7 @@ public enum PaymentMethod {
     PAYMENT_DEBIT("paymentDebit"),
     PAYMENT_CHECKOUT("paymentCheckout"),
     PAYMENT_CANCEL("paymentCancel"),
-    PRINT("print"),
-    INIT_PAYMENT("initPayment");
+    PRINT("print");
 
     private final String method;
 

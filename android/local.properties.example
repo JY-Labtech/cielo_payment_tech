@@ -1,13 +1,6 @@
-# Exemplo de configuração do local.properties
-# Copie este arquivo para local.properties e ajuste os caminhos de SDK
+# Exemplo de local.properties (necessário só para gerar o nativo com scripts/build_android_aar.sh).
+# Copie para android/local.properties ou android/native/local.properties e ajuste os caminhos.
+# O local.properties é local e não deve ser versionado.
 
 sdk.dir=/caminho/para/android/sdk
 flutter.sdk=/caminho/para/flutter/sdk
-
-# As chaves de licença NÃO devem mais ser definidas aqui.
-# Informe-as diretamente em tempo de execução ao chamar
-# CieloPaymentTech.I.initPayment(...).
-
-# Nota: O local.properties é um arquivo local e não deve ser versionado no Git
-# Adicione local.properties ao .gitignore
-

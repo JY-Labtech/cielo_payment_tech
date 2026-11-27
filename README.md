@@ -1,745 +1,665 @@
 # cielo_payment_tech
 
+> Open source Flutter plugin for Cielo LIO smart POS terminals: credit, debit, PIX and voucher payments, cancellation and receipt printing via the LIO deep link API.
+
+[![pub package](https://img.shields.io/pub/v/cielo_payment_tech.svg)](https://pub.dev/packages/cielo_payment_tech)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 <div align="center">
   <img src="assets/cielo_payment_tech.png" alt="Cielo Payment Tech" height="300" />
 </div>
 
----
+Plugin Flutter para integrar apps com os terminais **Cielo LIO** (Smart POS Android). O app conversa só com Dart: o plugin abre o app LIO por deep link (`lio://payment`, `lio://payment-reversal`, `lio://print`), recebe o retorno pelo deep link do seu app (`order://...`) e entrega o resultado num handler.
 
-## 🚨 Aviso
+> **Aviso:** este plugin **não é oficial** da Cielo. Ele foi desenvolvido de forma independente pela [JY Labtech](https://jylabtech.com.br) e é distribuído como open source sob a licença MIT.
 
-> **Este plugin é _não oficial_** e foi desenvolvido de forma independente para facilitar a integração de pagamentos via SDK da Cielo em dispositivos Android Smart POS.
+## Sumário
 
-Plugin Flutter para facilitar a integração com o SDK de pagamentos da Cielo através do LIO.
+- [Funcionalidades](#funcionalidades)
+- [Compatibilidade e requisitos](#compatibilidade-e-requisitos)
+- [Instalação](#instalação)
+- [Configuração Android](#configuração-android)
+- [Uso rápido](#uso-rápido)
+- [Referência da API](#referência-da-api)
+- [Exemplos por operação](#exemplos-por-operação)
+- [Tratamento de erros](#tratamento-de-erros)
+- [App de exemplo](#app-de-exemplo)
+- [Testes](#testes)
+- [Migração da 2.x para a 3.0.0](#migração-da-2x-para-a-300)
+- [Contribuindo](#contribuindo)
+- [Licença](#licença)
+- [Créditos](#créditos)
 
-**Package:** `br.com.jylabtech.cielo_payment_tech`
+## Funcionalidades
 
-## Descrição
+| Operação | Método | Deep link do LIO | Retorno no handler |
+|---|---|---|---|
+| Pagamento genérico (qualquer `PaymentType`) | `checkout` | `lio://payment` | `onTransactionSuccess` |
+| Crédito à vista ou parcelado | `creditPayment` | `lio://payment` | `onTransactionSuccess` |
+| Débito à vista | `debitPayment` | `lio://payment` | `onTransactionSuccess` |
+| PIX, vouchers, cartão loja, pré-autorização, crediário | `checkout` + `PaymentType` | `lio://payment` | `onTransactionSuccess` |
+| Cancelamento (estorno) | `cancelPayment` | `lio://payment-reversal` | `onCancelSuccess` |
+| Impressão (texto ou imagem) | `print` | `lio://print` | `onPrintSuccess` |
+| Impressão de texto | `printText` | `lio://print` | `onPrintSuccess` |
+| Impressão de imagem | `printImage` | `lio://print` | `onPrintSuccess` |
 
-Este plugin simplifica a integração com o SDK de pagamentos da Cielo, permitindo que desenvolvedores trabalhem apenas com código Flutter, enquanto o plugin gerencia toda a comunicação nativa com o LIO através de deep linking.
+Mensagens de andamento chegam em `onMessage` e erros em `onError`.
 
-**Características principais:**
+Tipos de pagamento (`PaymentType`): débito à vista; crédito à vista, parcelado loja, administradora, banco, cliente e crediário; vouchers alimentação, refeição, automotivo, cultura, benefícios e auto; cartão loja à vista, parcelado loja, parcelado, parcelado banco, pagamento de fatura (cheque e dinheiro); PIX; pré-autorização; crediário venda. A lista completa de códigos está em [Enums](#enums).
 
-- ✅ Integração simplificada com LIO via deep linking
-- ✅ Sistema de licenciamento integrado e seguro
-- ✅ Validação de licença automática no nativo
-- ✅ Callbacks assíncronos para sucesso e erro
-- ✅ Suporte a pagamentos de crédito e débito
-- ✅ Interface simples e intuitiva
+## Compatibilidade e requisitos
+
+| Item | Requisito |
+|---|---|
+| Terminal | Cielo LIO (Smart POS Android) com o app LIO instalado e a integração local por deep link habilitada |
+| Plataforma | Somente Android |
+| `minSdk` | 24 |
+| `compileSdk` do plugin | 36 |
+| Dart | `^3.9.2` |
+| Flutter | `>= 3.3.0` (testado com 3.47) |
+| Credenciais Cielo | `clientId` e `accessToken` da sua aplicação no portal de desenvolvedores da Cielo (enviados em cada pagamento e cancelamento) |
+| Permissões | Nenhuma permissão extra. O plugin não acessa a internet: a comunicação é toda por deep link com o app LIO |
 
 ## Instalação
 
-Adicione a dependência no seu `pubspec.yaml`:
+```bash
+flutter pub add cielo_payment_tech
+```
+
+Ou no `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  cielo_payment_tech: ^2.1.0
+  cielo_payment_tech: ^3.0.0
 ```
+
+O código nativo Android já vem pré-compilado em `android/libs` (gerado a partir de `android/native`). Não é preciso configurar repositório Maven nem credenciais extras.
 
 ## Configuração Android
 
-### 1. Enviar as chaves de licença em tempo de execução
+### 1. Intent filters de retorno
 
-As chaves não são mais configuradas no `local.properties`. Elas devem ser fornecidas pelo app ao chamar `CieloPaymentTech.I.initPayment` (por exemplo, lidas de um backend seguro). Veja a seção **Licença do plugin** para saber onde adquirir a chave e qual valor usar em `licenceInternalKey`.
+O LIO devolve o resultado abrindo o deep link de retorno do seu app. Declare os dois hosts na `MainActivity` do **seu app** (`android/app/src/main/AndroidManifest.xml`):
 
-### 2. Configurar Intent Filter
-
-Adicione os intent filters no `AndroidManifest.xml` do seu **app** (na `MainActivity`) para receber os callbacks do LIO. O host `payment` recebe o retorno dos pagamentos e o host `response` recebe o retorno de cancelamentos e impressões:
+- `order://payment`: retorno dos pagamentos (padrão de `initPayment`).
+- `order://response`: retorno de cancelamentos e impressões (padrão de `cancelPayment` e `print`).
 
 ```xml
 <activity
     android:name=".MainActivity"
-    android:launchMode="singleTop"
     android:exported="true"
+    android:launchMode="singleTop"
     ...>
 
-    <!-- Intent filter para deep linking -->
     <intent-filter>
-        <action android:name="android.intent.action.VIEW" />
-        <category android:name="android.intent.category.DEFAULT" />
-        <category android:name="android.intent.category.BROWSABLE" />
-        <data
-            android:host="payment"
-            android:scheme="order" />
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
     </intent-filter>
 
-    <!-- Retorno de cancelamento e impressão -->
+    <!-- Retorno de pagamento: order://payment -->
     <intent-filter>
         <action android:name="android.intent.action.VIEW" />
         <category android:name="android.intent.category.DEFAULT" />
         <category android:name="android.intent.category.BROWSABLE" />
-        <data
-            android:host="response"
-            android:scheme="order" />
+        <data android:scheme="order" android:host="payment" />
+    </intent-filter>
+
+    <!-- Retorno de cancelamento e impressão: order://response -->
+    <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="order" android:host="response" />
     </intent-filter>
 </activity>
 ```
 
-**Nota:**
+Observações:
 
-- O `launchMode="singleTop"` é importante para garantir que o deep link seja processado corretamente
-- O `android:exported="true"` é necessário para que o deep link funcione
-- O plugin processa automaticamente os deep links no nativo, então não é necessário configurar nada adicional no código Dart
+- `launchMode="singleTop"` faz o retorno chegar na Activity que já está aberta (via `onNewIntent`), sem recriar o app.
+- `android:exported="true"` é obrigatório para o LIO conseguir abrir o deep link.
+- O plugin trata no nativo apenas o scheme `order` com os hosts `payment` e `response`. Se você passar outro `urlCallback`, ele precisa continuar sendo `order://payment` ou `order://response`; caso contrário o retorno não é processado.
+- Nenhum código Dart extra é necessário para receber o deep link: o plugin o lê e chama o handler.
 
-## Uso
+### 2. Gradle
 
-### 1. Implementar o Handler
+Nada a configurar além do padrão do Flutter: o plugin usa só `google()` e `mavenCentral()` e o binário nativo vem no pacote. Confirme que o `minSdk` do app é pelo menos 24.
 
-Crie uma classe que implementa a interface `ICieloHandler` para receber os callbacks do plugin:
+## Uso rápido
 
 ```dart
 import 'package:cielo_payment_tech/cielo_payment_tech.dart';
+import 'package:flutter/material.dart';
 
-class MyPaymentHandler implements ICieloHandler {
+class MyCieloHandler implements ICieloHandler {
   @override
   Future<void> onTransactionSuccess(Map<String, dynamic> response) async {
-    // response contém os dados completos do pagamento aprovado
-    // Exemplo: id, status, payments, items, etc.
-    print('Pagamento aprovado: $response');
-
-    // Você pode acessar os campos específicos:
-    // final orderId = response['id'];
-    // final status = response['status'];
-    // final payments = response['payments'];
-
-    // Atualizar UI, salvar no banco de dados, etc.
+    debugPrint('Pagamento aprovado: ${response['id']} (${response['status']})');
   }
 
   @override
   Future<void> onCancelSuccess(Map<String, dynamic> response) async {
-    // Retorno do LIO após um cancelamento concluído
-    print('Cancelamento concluído: $response');
+    debugPrint('Cancelamento concluído: $response');
   }
 
   @override
   Future<void> onPrintSuccess(Map<String, dynamic> response) async {
-    // Retorno do LIO após uma impressão concluída
-    print('Impressão concluída: $response');
+    debugPrint('Impressão concluída: $response');
   }
 
   @override
-  Future<void> onError(String message) async {
-    // message contém a descrição do erro
-    print('Erro no pagamento: $message');
-
-    // Mostrar mensagem de erro ao usuário, fazer log, etc.
-  }
+  Future<void> onError(String message) async => debugPrint('Erro: $message');
 
   @override
-  Future<void> onMessage(String message) async {
-    // message contém mensagens informativas durante o processo
-    // Exemplo: "Licença recebida. Validando...", "Licença ativada", "Pagamento iniciado...", etc.
-    print('Mensagem: $message');
-
-    // Atualizar status na UI, mostrar loading, etc.
-  }
+  Future<void> onMessage(String message) async => debugPrint('Info: $message');
 }
-```
 
-### 2. Inicializar o Plugin
+void main() => runApp(const MaterialApp(home: PayPage()));
 
-```dart
-import 'package:cielo_payment_tech/cielo_payment_tech.dart';
+class PayPage extends StatefulWidget {
+  const PayPage({super.key});
 
-// Criar o handler
-final handler = MyPaymentHandler();
-
-// Inicializar o plugin informando as chaves de licença
-final payment = CieloPaymentTech.I.initPayment(
-  handler: handler,
-  licenceKey: 'SUA_LICENCE_KEY', // chave obtida em https://portal.jylabtech.com.br
-  // licenceInternalKey é opcional (padrão: CieloPaymentTech.licenceCheck)
-  urlCallback: "order://payment", // Opcional, padrão é "order://payment"
-);
-
-// Agora você pode usar o objeto payment para realizar pagamentos
-```
-
-**Nota:**
-
-- As chaves precisam ser fornecidas em tempo de execução ao chamar `initPayment`. Recomenda-se obtê-las de uma API segura.
-- A inicialização deve ser feita uma vez, geralmente no `initState()` ou `main()`
-- O plugin valida a licença automaticamente antes de cada pagamento, cancelamento e impressão. Sem licença válida a operação não é executada e o erro `LICENCE_ERROR` chega em `onError`
-
-### 3. Realizar Pagamento
-
-#### Pagamento de Crédito à Vista
-
-```dart
-try {
-  final success = await payment.creditPayment(
-    amount: 10000, // Valor em centavos (R$ 100,00)
-    accessToken: "seu_access_token",
-    clientId: "seu_client_id",
-    merchantCode: "seu_merchant_code", // Opcional
-    email: "email@exemplo.com", // Opcional
-    installments: 0, // Para crédito à vista, use 0
-    items: [
-      PaymentItem(
-        name: "Produto",
-        quantity: 1,
-        sku: "SKU123",
-        unitOfMeasure: "UN",
-        unitPrice: 10000,
-      ),
-    ],
-  );
-
-  if (success) {
-    // O pagamento foi iniciado
-    // O resultado será retornado via onTransactionSuccess ou onError no handler
-  }
-} catch (e) {
-  // Tratar erros de licença ou outros erros
-  print('Erro: $e');
-}
-```
-
-#### Pagamento de Débito à Vista
-
-```dart
-try {
-  final success = await payment.debitPayment(
-    amount: 10000, // Valor em centavos (R$ 100,00)
-    accessToken: "seu_access_token",
-    clientId: "seu_client_id",
-    merchantCode: "seu_merchant_code", // Opcional
-    email: "email@exemplo.com", // Opcional
-    items: [
-      PaymentItem(
-        name: "Produto",
-        quantity: 1,
-        sku: "SKU123",
-        unitOfMeasure: "UN",
-        unitPrice: 10000,
-      ),
-    ],
-  );
-
-  if (success) {
-    // O pagamento foi iniciado
-    // O resultado será retornado via onTransactionSuccess ou onError no handler
-  }
-} catch (e) {
-  // Tratar erros de licença ou outros erros
-  print('Erro: $e');
-}
-```
-
-#### Pagamento Customizado
-
-Para ter mais controle sobre o pagamento, você pode criar um `PaymentRequest` customizado com qualquer tipo de pagamento suportado:
-
-```dart
-import 'package:cielo_payment_tech/cielo_payment_tech.dart';
-
-// Exemplo: Pagamento PIX
-final paymentRequestPix = PaymentRequest(
-  accessToken: "seu_access_token",
-  clientId: "seu_client_id",
-  email: "email@exemplo.com",
-  installments: 0,
-  items: [
-    PaymentItem(
-      name: "Produto",
-      quantity: 1,
-      sku: "SKU123",
-      unitOfMeasure: "UN",
-      unitPrice: 10000,
-    ),
-  ],
-  merchantCode: "seu_merchant_code",
-  paymentCode: PaymentType.pix.code,
-  value: 10000,
-);
-
-// Exemplo: Crédito Parcelado Loja (3x)
-final paymentRequestParcelado = PaymentRequest(
-  accessToken: "seu_access_token",
-  clientId: "seu_client_id",
-  email: "email@exemplo.com",
-  installments: 3, // Número de parcelas
-  items: [
-    PaymentItem(
-      name: "Produto",
-      quantity: 1,
-      sku: "SKU123",
-      unitOfMeasure: "UN",
-      unitPrice: 10000,
-    ),
-  ],
-  merchantCode: "seu_merchant_code",
-  paymentCode: PaymentType.creditoParceladoLoja.code,
-  value: 10000,
-);
-
-// Exemplo: Voucher Alimentação
-final paymentRequestVoucher = PaymentRequest(
-  accessToken: "seu_access_token",
-  clientId: "seu_client_id",
-  email: "email@exemplo.com",
-  installments: 0,
-  items: [
-    PaymentItem(
-      name: "Produto",
-      quantity: 1,
-      sku: "SKU123",
-      unitOfMeasure: "UN",
-      unitPrice: 10000,
-    ),
-  ],
-  merchantCode: "seu_merchant_code",
-  paymentCode: PaymentType.voucherAlimentacao.code,
-  value: 10000,
-);
-
-try {
-  final success = await payment.checkout(paymentRequest: paymentRequestPix);
-  if (success) {
-    // Pagamento iniciado
-  }
-} catch (e) {
-  print('Erro: $e');
-}
-```
-
-**Todos os tipos de pagamento disponíveis:**
-
-```dart
-// Listar todos os códigos disponíveis
-final allCodes = PaymentType.allCodes;
-print(allCodes); // ['DEBITO_AVISTA', 'CREDITO_AVISTA', 'PIX', ...]
-
-// Converter código string para PaymentType
-final type = PaymentType.fromCode('PIX');
-if (type != null) {
-  print(type.code); // 'PIX'
-}
-```
-
-**Exemplos de uso por categoria:**
-
-- **Débito:** `PaymentType.debitoAvista.code`
-- **Crédito:** `PaymentType.creditoAvista.code`, `PaymentType.creditoParceladoLoja.code`, etc.
-- **Vouchers:** `PaymentType.voucherAlimentacao.code`, `PaymentType.voucherRefeicao.code`, etc.
-- **Cartão Loja:** `PaymentType.cartaoLojaAvista.code`, `PaymentType.cartaoLojaParceladoLoja.code`, etc.
-- **Outros:** `PaymentType.pix.code`, `PaymentType.preAutorizacao.code`, etc.
-
-#### Cancelamento e Impressão
-
-```dart
-// Cancelar um pagamento (retorno via onCancelSuccess ou onError)
-await payment.cancelPayment(
-  cancelRequest: CancelRequest(
-    id: "order_id",
-    clientId: "seu_client_id",
-    accessToken: "seu_access_token",
-    cieloCode: "cielo_code_do_pagamento",
-    authCode: "auth_code_do_pagamento",
-    value: 10000,
-  ),
-);
-
-// Imprimir texto ou imagem (retorno via onPrintSuccess ou onError)
-await payment.printText(text: "Comprovante de teste");
-await payment.printImage(imagePath: "/caminho/da/imagem.png");
-```
-
-Cancelamento e impressão usam `order://response` como callback padrão. Todas as operações (pagamento, cancelamento e impressão) validam a licença antes de abrir o LIO.
-
-### 4. Estrutura de Resposta
-
-Quando o pagamento é processado com sucesso, o método `onTransactionSuccess` recebe um `Map<String, dynamic>` com a seguinte estrutura:
-
-```dart
-{
-  "id": "order_id",
-  "status": "PAID",  // ou "PENDING", "CANCELLED", etc.
-  "number": "order_number",
-  "reference": "order_reference",
-  "price": 10000,
-  "paidAmount": 10000,
-  "pendingAmount": 0,
-  "createdAt": "2024-01-01T00:00:00",
-  "updatedAt": "2024-01-01T00:00:00",
-  "items": [
-    {
-      "id": "item_id",
-      "name": "Produto",
-      "quantity": 1,
-      "unitPrice": 10000,
-      ...
-    }
-  ],
-  "payments": [
-    {
-      "id": "payment_id",
-      "amount": 10000,
-      "brand": "VISA",
-      "mask": "1234",
-      "authCode": "123456",
-      "cieloCode": "00",
-      "terminal": "terminal_info",
-      "merchantCode": "merchant_code",
-      ...
-    }
-  ]
-}
-```
-
-**Exemplo de uso da resposta:**
-
-```dart
-@override
-Future<void> onTransactionSuccess(Map<String, dynamic> response) async {
-  final orderId = response['id'] as String?;
-  final status = response['status'] as String?;
-  final paidAmount = response['paidAmount'] as int?;
-
-  if (status == 'PAID') {
-    // Pagamento aprovado
-    final payments = response['payments'] as List?;
-    if (payments != null && payments.isNotEmpty) {
-      final payment = payments[0] as Map<String, dynamic>;
-      final authCode = payment['authCode'];
-      final brand = payment['brand'];
-      // Processar dados do pagamento
-    }
-  }
-}
-```
-
-### 5. Tratamento de Erros
-
-O plugin pode retornar erros em diferentes situações:
-
-- **Erro de Licença**: Quando a licença não é válida ou não está configurada
-- **Erro de LIO**: Quando o app LIO não está instalado
-- **Erro de Pagamento**: Quando o pagamento é recusado ou cancelado
-- **Erro de Rede**: Quando há problemas de comunicação
-
-Todos os erros são retornados via `onError` no handler, e o método chamado (`checkout`, `creditPayment`, `cancelPayment`, `print`...) retorna `false`. Quando a licença é recusada, a mensagem chega no formato `Erro ao iniciar pagamento: PlatformException(LICENCE_ERROR, <mensagem>, ...)` (ou `Erro ao iniciar cancelamento`/`Erro ao iniciar impressão`):
-
-```dart
-@override
-Future<void> onError(String message) async {
-  // message contém a descrição do erro
-  // Exemplos:
-  // - "Sua licença não foi ativada."
-  // - "Erro: App LIO não instalado."
-  // - "Erro desconhecido no pagamento"
-
-  // Tratar o erro apropriadamente
-}
-```
-
-## Licença do plugin
-
-O plugin só executa pagamentos, cancelamentos e impressões com uma licença válida e ativa. A validação é sempre feita no servidor oficial da JY Labtech (`https://licence-server.invalid/pos-payments/licence/check`).
-
-### Onde adquirir
-
-- Crie a conta ou entre em **[portal.jylabtech.com.br](https://portal.jylabtech.com.br)** (mesmo e-mail e senha do portal antigo).
-- O produto é a **Licença plugin de pagamento**, que vale para qualquer plugin de pagamento da JY Labtech (Cielo, Stone, etc.).
-- Planos:
-  - **debug** (cortesia): concedido automaticamente no cadastro, válido por 365 dias e para até 2 aparelhos. Ideal para desenvolvimento e homologação.
-  - **mensal**: cobrado por dispositivo.
-- No portal você acompanha os aparelhos que usam a licença e pode desativá-los. Um aparelho desativado deixa de ser aceito.
-
-As chaves de licença já existentes continuam valendo, com o mesmo valor. Chaves novas (formato `JYL-...`) também funcionam.
-
-### Como configurar
-
-Passe a chave ao chamar `initPayment`:
-
-| Parâmetro | Valor |
-|---|---|
-| `licenceKey` | Obrigatório. A chave da sua licença, copiada do portal. |
-| `licenceInternalKey` | Opcional. Padrão: `CieloPaymentTech.licenceCheck` (`***REMOVIDO***`, base64 de `https://licence-server.invalid/pos-payments/licence/check`). |
-
-O plugin sempre valida no servidor oficial da JY Labtech. O `licenceInternalKey` (URL em texto ou em base64) só é aceito se apontar para `https://licence-server.invalid/pos-payments/licence/check` (ou as variantes `/invoice` e `/subscription`). Qualquer outro valor é ignorado e o servidor oficial é usado no lugar.
-
-> **Migração:** o valor antigo do `licenceInternalKey` (que começa com `***REMOVIDO***...`) é ignorado: a validação vai para o servidor novo. A licença guardada no aparelho com o valor antigo é descartada e validada de novo online na primeira operação. Pode remover o parâmetro do seu código.
-
-### Como a validação funciona
-
-- O aparelho é identificado principalmente pelo `ANDROID_ID`. Cada aparelho novo ocupa uma vaga da licença.
-- A validação acontece no nativo antes de cada pagamento, cancelamento ou impressão. Com licença inválida a operação não é executada. A resposta do LIO (deep link) de uma operação já iniciada é sempre repassada ao app.
-- A licença só libera o uso se estiver dentro da validade e não estiver vencida, inativa/suspensa ou cancelada. Uma resposta do servidor com licença nessas condições também bloqueia.
-- **Revalidação**: a primeira operação depois de abrir o app sempre consulta o servidor; depois, a licença é consultada de novo a cada **4 horas** de uso.
-- **Bloqueio imediato**: se o servidor recusar a licença (cliente bloqueado no portal, licença vencida, cancelada ou suspensa, não encontrada, aparelho desativado ou limite de aparelhos), a licença guardada é apagada e as operações passam a falhar com `LICENCE_ERROR` na hora.
-- **Cache offline**: depois de validada, a licença fica guardada no aparelho (criptografada com `EncryptedSharedPreferences`). Ela só é usada quando o servidor não responde (sem internet, timeout, 408, 429 ou erro 5xx) e por no máximo **72 horas** desde a última validação online, desde que continue dentro da validade. Depois de uma falha de rede o plugin espera 5 minutos antes de tentar o servidor de novo. Sem internet e sem licença guardada válida, as operações falham com `LICENCE_ERROR`. Uma licença guardada com data no futuro (relógio do aparelho adulterado) é descartada.
-- Trocar a `licenceKey` força uma nova consulta ao servidor.
-- A consulta ao servidor roda fora da thread principal, com timeout de 15 segundos.
-
-### Erros de licença
-
-| HTTP | Situação | O que fazer |
-|---|---|---|
-| 404 | Licença não encontrada | Confira a `licenceKey` (sem espaços ou quebras de linha). |
-| 412 | Limite de aparelhos atingido ou aparelho desativado | Libere ou reative o aparelho no portal, ou contrate mais dispositivos. |
-| 428 | Licença vencida, suspensa ou cancelada | Renove ou regularize o pagamento no portal. |
-| 403 | Requisição sem chave | Verifique se `licenceKey` foi informada no `initPayment`. |
-| 400 | Aparelho sem identificador estável | Verifique se o aparelho expõe o `ANDROID_ID`. |
-| 429 | Muitas tentativas em pouco tempo | Aguarde alguns instantes e tente de novo. |
-
-A mensagem retornada pelo servidor (campo `message`) é repassada para o `onError` com o código `LICENCE_ERROR`. Se a resposta não tiver mensagem, ela vira `Erro ao validar licença (HTTP <código>)`. Se o servidor não estiver acessível e não houver licença válida guardada, a mensagem será o erro de rede (por exemplo, `Tempo esgotado ao validar a licença...`). Uma licença recusada pelas regras do plugin gera `Licença vencida.`, `Licença inativa ou suspensa.` ou `Licença cancelada.`.
-
-## Recursos
-
-### Tipos de Pagamento Suportados
-
-**Débito:**
-
-- ✅ Débito à vista
-
-**Crédito:**
-
-- ✅ Crédito à vista
-- ✅ Crédito parcelado loja
-- ✅ Crédito parcelado administradora
-- ✅ Crédito parcelado banco
-- ✅ Crédito parcelado cliente
-- ✅ Crédito crediário
-
-**Vouchers:**
-
-- ✅ Voucher alimentação
-- ✅ Voucher refeição
-- ✅ Voucher automotivo
-- ✅ Voucher cultura
-- ✅ Voucher benefícios
-- ✅ Voucher auto
-
-**Cartão Loja:**
-
-- ✅ Cartão loja à vista
-- ✅ Cartão loja parcelado loja
-- ✅ Cartão loja parcelado
-- ✅ Cartão loja parcelado banco
-- ✅ Cartão loja pagamento fatura cheque
-- ✅ Cartão loja pagamento fatura dinheiro
-
-**Outros:**
-
-- ✅ PIX
-- ✅ Pré-autorização
-- ✅ Crediário venda
-
-### Outros Recursos
-
-- ✅ Deep linking automático com o LIO
-- ✅ Sistema de licenciamento integrado e seguro
-- ✅ Validação de licença automática no nativo
-- ✅ Callbacks assíncronos para sucesso e erro
-- ✅ Suporte a itens de pagamento
-- ✅ Armazenamento criptografado de licença
-- ✅ Interface simples e intuitiva
-- ✅ Processamento de deep links no nativo
-
-## Estrutura do Projeto
-
-O plugin segue a mesma estrutura do projeto Stone Payment Tech:
-
-- `lib/src/interface/` - Interfaces e handlers
-  - `handler/` - Interface ICieloHandler
-  - `model/` - Modelos de dados (PaymentRequest, PaymentResponse, PaymentType, etc.)
-- `lib/src/payments/` - Lógica de pagamento
-  - `payment.dart` - Classe Payment com métodos de pagamento
-- `lib/src/cielo_payment_tech.dart` - Classe principal do plugin
-- `android/native/src/main/java/br/com/jylabtech/cielo_payment_tech/` - Código nativo Android (compilado no AAR)
-  - `licence/` - Sistema de licenciamento
-  - `payments/` - Presenter de pagamentos
-  - `core/` - Classes core do plugin
-
-## Requisitos
-
-- Flutter >= 3.3.0
-- Android SDK 24+ (minSdk 24)
-- LIO instalado no dispositivo
-- Chaves de licença válidas fornecidas em tempo de execução (ver `initPayment`)
-
-## Exemplo Completo
-
-Aqui está um exemplo completo de uso do plugin:
-
-```dart
-import 'package:flutter/material.dart';
-import 'package:cielo_payment_tech/cielo_payment_tech.dart';
-
-class PaymentScreen extends StatefulWidget {
   @override
-  _PaymentScreenState createState() => _PaymentScreenState();
+  State<PayPage> createState() => _PayPageState();
 }
 
-class _PaymentScreenState extends State<PaymentScreen> {
-  Payment? _payment;
+class _PayPageState extends State<PayPage> {
+  late final Payment _payment;
 
   @override
   void initState() {
     super.initState();
-    _initializePayment();
+    _payment = CieloPaymentTech.I.initPayment(handler: MyCieloHandler());
   }
 
-  void _initializePayment() {
-    final handler = MyPaymentHandler();
-    _payment = CieloPaymentTech.I.initPayment(
-      handler: handler,
-      licenceKey: 'SUA_LICENCE_KEY',
+  Future<void> _pay() async {
+    final started = await _payment.creditPayment(
+      amount: 1000, // R$ 10,00 em centavos
+      accessToken: 'SEU_ACCESS_TOKEN',
+      clientId: 'SEU_CLIENT_ID',
     );
+    // started == true: o LIO foi aberto. O resultado chega no handler.
+    // started == false: não foi possível iniciar; o motivo chegou em onError.
+    debugPrint('Pagamento iniciado: $started');
   }
 
-  Future<void> _processPayment() async {
-    try {
-      await _payment?.creditPayment(
-        amount: 10000,
-        accessToken: "seu_access_token",
-        clientId: "seu_client_id",
-      );
-    } catch (e) {
-      print('Erro: $e');
-    }
+  @override
+  void dispose() {
+    _payment.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Pagamento')),
+      appBar: AppBar(title: const Text('Cielo LIO')),
       body: Center(
-        child: ElevatedButton(
-          onPressed: _processPayment,
-          child: Text('Pagar'),
-        ),
+        child: ElevatedButton(onPressed: _pay, child: const Text('Pagar R\$ 10,00')),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _payment?.dispose();
-    super.dispose();
-  }
-}
-
-class MyPaymentHandler implements ICieloHandler {
-  @override
-  Future<void> onTransactionSuccess(Map<String, dynamic> response) async {
-    print('Pagamento aprovado: $response');
-  }
-
-  @override
-  Future<void> onCancelSuccess(Map<String, dynamic> response) async {
-    print('Cancelamento concluído: $response');
-  }
-
-  @override
-  Future<void> onPrintSuccess(Map<String, dynamic> response) async {
-    print('Impressão concluída: $response');
-  }
-
-  @override
-  Future<void> onError(String message) async {
-    print('Erro: $message');
-  }
-
-  @override
-  Future<void> onMessage(String message) async {
-    print('Mensagem: $message');
   }
 }
 ```
 
-Veja também o exemplo completo em `example/lib/payment_page.dart` para uma implementação funcional com interface de usuário completa.
+## Referência da API
 
-## Troubleshooting
+### `CieloPaymentTech`
 
-### Erro: "LicenceKey não encontrado"
+Ponto de entrada do plugin.
 
-- Verifique se `CieloPaymentTech.I.initPayment` está sendo chamado com `licenceKey` preenchida
-- Confirme que as chaves estão chegando corretamente do seu backend/configuração segura
-- Certifique-se de remover espaços extras ou caracteres inválidos nas chaves
+| Membro | Descrição |
+|---|---|
+| `static CieloPaymentTech get I` | Instância única, usando o canal `cielo_payment_tech`. |
+| `CieloPaymentTech(MethodChannel channel)` | Construtor com canal próprio (útil em testes). |
+| `static const String channelName` | `"cielo_payment_tech"`. |
+| `Payment initPayment({required ICieloHandler handler, String? urlCallback})` | Cria o `Payment` e registra o handler. `urlCallback` é o deep link de retorno dos pagamentos (padrão `order://payment`). Não chama o nativo. |
+| `Payment get payment` | O `Payment` criado por `initPayment`. Lança `Exception` se `initPayment` ainda não foi chamado. |
 
-### Erro: "App LIO não instalado"
+```dart
+final payment = CieloPaymentTech.I.initPayment(
+  handler: MyCieloHandler(),
+  urlCallback: 'order://payment', // opcional
+);
 
-- Instale o app LIO no dispositivo
-- Verifique se o app LIO está atualizado
+// Em outro ponto do app:
+final same = CieloPaymentTech.I.payment;
+```
 
-### Deep link não está funcionando
+> `Payment` é criado uma vez por processo. Chamar `initPayment` de novo devolve a mesma instância, com o handler e o `urlCallback` da primeira chamada. Para trocar o handler, chame `payment.dispose()` antes de `initPayment`.
 
-- Verifique se o intent filter está configurado no `AndroidManifest.xml`
-- Confirme que o `launchMode="singleTop"` está configurado na Activity
-- Verifique se o `urlCallback` está correto
+### `Payment`
 
-### Licença não é validada
+Todos os métodos retornam `Future<bool>`: `true` quando o LIO foi acionado (o resultado chega depois no handler) e `false` quando a operação não pôde ser iniciada (o motivo chega em `onError`). Eles não lançam exceção.
 
-- Garanta que o app chamou `initPayment` antes de qualquer operação de pagamento/cancelamento/impressão
-- Verifique no [portal](https://portal.jylabtech.com.br) se a licença está ativa, dentro da validade e se o aparelho não foi desativado ou excedeu o limite
-- Confirme que há conexão com a internet ao abrir o app (a primeira operação consulta o servidor). Sem internet, a operação só funciona se houver uma validação bem-sucedida nas últimas 72 horas
-- Consulte a tabela **Erros de licença** para a mensagem recebida em `onError`
+#### `checkout`
 
-### Erro: "Licença não configurada"
+```dart
+Future<bool> checkout({required PaymentRequest paymentRequest})
+```
 
-- `initPayment` não foi chamado, ou foi chamado com `licenceKey` vazia
+Envia um `PaymentRequest` (codificado em base64) para `lio://payment`, com o `urlCallback` de `initPayment`. Use para qualquer `PaymentType`.
+
+```dart
+await payment.checkout(
+  paymentRequest: PaymentRequest(
+    accessToken: 'SEU_ACCESS_TOKEN',
+    clientId: 'SEU_CLIENT_ID',
+    items: [],
+    paymentCode: PaymentType.pix.code,
+    value: 1500,
+  ),
+);
+```
+
+#### `creditPayment`
+
+```dart
+Future<bool> creditPayment({
+  required int amount,
+  required String accessToken,
+  required String clientId,
+  String? merchantCode,
+  String? email,
+  int installments = 0,
+  List<PaymentItem>? items,
+})
+```
+
+Atalho para `checkout` com `PaymentType.creditoAvista` (`CREDITO_AVISTA`). `amount` em centavos.
+
+#### `debitPayment`
+
+```dart
+Future<bool> debitPayment({
+  required int amount,
+  required String accessToken,
+  required String clientId,
+  String? merchantCode,
+  String? email,
+  List<PaymentItem>? items,
+})
+```
+
+Atalho para `checkout` com `PaymentType.debitoAvista` (`DEBITO_AVISTA`) e `installments: 0`.
+
+#### `cancelPayment`
+
+```dart
+Future<bool> cancelPayment({required CancelRequest cancelRequest, String? urlCallback})
+```
+
+Abre `lio://payment-reversal`. `urlCallback` padrão: `order://response`. O retorno chega em `onCancelSuccess` ou `onError`.
+
+#### `print`
+
+```dart
+Future<bool> print({required PrintRequest printRequest, String? urlCallback})
+```
+
+Abre `lio://print`. `urlCallback` padrão: `order://response`. O retorno chega em `onPrintSuccess` ou `onError`.
+
+#### `printText` e `printImage`
+
+```dart
+Future<bool> printText({required String text, List<Map<String, dynamic>>? styles, String? urlCallback})
+Future<bool> printImage({required String imagePath, List<Map<String, dynamic>>? styles, String? urlCallback})
+```
+
+Atalhos para `print` com `PrintRequest.text` / `PrintRequest.image`.
+
+#### `dispose`
+
+```dart
+void dispose()
+```
+
+Remove o handler do canal e libera a instância. Depois disso, chame `initPayment` de novo para voltar a usar o plugin.
+
+#### Propriedades
+
+| Propriedade | Tipo | Descrição |
+|---|---|---|
+| `channel` | `MethodChannel` | Canal usado com o nativo. |
+| `paymentHandler` | `ICieloHandler` | Handler registrado. |
+| `urlCallback` | `String` | Deep link de retorno dos pagamentos. |
+
+### `ICieloHandler`
+
+Interface que o app implementa para receber os retornos.
+
+| Método | Quando é chamado |
+|---|---|
+| `Future<void> onTransactionSuccess(Map<String, dynamic> response)` | Retorno de pagamento em `order://payment` com `responsecode`. `response` é o JSON do pedido devolvido pelo LIO. |
+| `Future<void> onCancelSuccess(Map<String, dynamic> response)` | Retorno em `order://response` com `code` ausente ou `0` e com `order` ou `id` no JSON. |
+| `Future<void> onPrintSuccess(Map<String, dynamic> response)` | Retorno em `order://response` com `code` ausente ou `0` e sem `order`/`id`. |
+| `Future<void> onError(String message)` | Falha ao iniciar a operação, pagamento recusado/cancelado no LIO (`reason`), app LIO ausente ou retorno ilegível. |
+| `Future<void> onMessage(String message)` | Andamento: `Pagamento iniciado. Aguardando resposta do LIO...`, `Cancelamento iniciado...`, `Impressão iniciada...`. |
+
+### Modelos de requisição
+
+#### `PaymentRequest`
+
+| Campo | Tipo | JSON | Descrição |
+|---|---|---|---|
+| `accessToken` | `String?` | `accessToken` | Token da aplicação Cielo. |
+| `clientId` | `String?` | `clientID` | Client ID da aplicação Cielo. |
+| `email` | `dynamic` | `email` | E-mail do cliente (opcional). |
+| `installments` | `int?` | `installments` | Parcelas (`0` à vista). |
+| `items` | `List<PaymentItem>` | `items` | Itens do pedido. |
+| `merchantCode` | `String?` | `merchantCode` | Código do estabelecimento (opcional). |
+| `paymentCode` | `String` | `paymentCode` | Código do tipo de pagamento (`PaymentType.x.code`). |
+| `value` | `int` | `value` | Valor total em centavos. |
+
+Métodos: `toMap()`, `toJson()`, `toBase64Encode()`, `PaymentRequest.fromMap`, `PaymentRequest.fromJson`.
+
+#### `PaymentItem`
+
+`name` (`String`), `quantity` (`int`), `sku` (`String`), `unitOfMeasure` (`String`), `unitPrice` (`int`, centavos). Todos obrigatórios.
+
+#### `CancelRequest`
+
+| Campo | Tipo | JSON | Descrição |
+|---|---|---|---|
+| `id` | `String` | `id` | ID do pedido (campo `id` do retorno do pagamento). |
+| `clientId` | `String` | `clientID` | Client ID Cielo. |
+| `accessToken` | `String` | `accessToken` | Access token Cielo. |
+| `cieloCode` | `String` | `cieloCode` | `payments[].cieloCode` do pagamento. |
+| `authCode` | `String` | `authCode` | `payments[].authCode` do pagamento. |
+| `value` | `int` | `value` | Valor a cancelar, em centavos. |
+
+#### `PrintRequest`
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `operation` | `String` | `PRINT_TEXT` ou `PRINT_IMAGE` (`PrintOperation.x.value`). |
+| `styles` | `List<Map<String, dynamic>>` | Estilos do LIO, um mapa por valor. Padrão `[{}]` nas factories. |
+| `value` | `List<String>` | Textos ou caminhos de imagem. |
+
+Factories: `PrintRequest.text({required String text, styles})` e `PrintRequest.image({required String imagePath, styles})`.
+
+### Modelos de resposta
+
+O handler recebe `Map<String, dynamic>`. Para tipar, use `PaymentResponseSuccess.fromMap(response)` (tolera `items`/`payments` ausentes) ou `Order.fromMap(response)` (exige `items` e `payments`):
+
+| Classe | Campos principais |
+|---|---|
+| `Order` / `PaymentResponseSuccess` | `id`, `number`, `reference`, `status`, `type`, `price`, `paidAmount`, `pendingAmount`, `notes`, `createdAt`, `updatedAt`, `items` (`List<OrderItem>`), `payments` |
+| `OrderItem` | `id`, `name`, `description`, `details`, `sku`, `quantity`, `unitPrice`, `unitOfMeasure`, `reference` |
+| Pagamento (`payments[]`) | `id`, `amount`, `brand`, `mask`, `authCode`, `cieloCode`, `installments`, `terminal`, `merchantCode`, `primaryCode`, `secondaryCode`, `externalId`, `requestDate`, `paymentFields` |
+| `PaymentFields` | Campos extras do LIO como `statusCode`, `pan`, `numberOfQuotas`, `merchantName`, `paymentTransactionId`, `cardCaptureType`, `hasSignature` etc. |
+| `PaymentResponse` | `code`, `reason`, `order` (envelope com erro/pedido) |
+
+> A classe de pagamento de `payments[]` não é exportada com o nome `Payment` (para não conflitar com a classe `Payment` do plugin). Leia os campos pelo mapa ou por `PaymentResponseSuccess.fromMap(response).payments`.
+
+```dart
+@override
+Future<void> onTransactionSuccess(Map<String, dynamic> response) async {
+  final order = PaymentResponseSuccess.fromMap(response);
+  final first = order.payments.isNotEmpty ? order.payments.first : null;
+  debugPrint('Pedido ${order.id} ${order.status}: ${first?.brand} ${first?.mask} '
+      'auth=${first?.authCode} cieloCode=${first?.cieloCode}');
+}
+```
+
+### Enums
+
+#### `PaymentType`
+
+| Enum | Código | Enum | Código |
+|---|---|---|---|
+| `debitoAvista` | `DEBITO_AVISTA` | `voucherBeneficios` | `VOUCHER_BENEFICIOS` |
+| `creditoAvista` | `CREDITO_AVISTA` | `voucherAuto` | `VOUCHER_AUTO` |
+| `creditoParceladoLoja` | `CREDITO_PARCELADO_LOJA` | `cartaoLojaAvista` | `CARTAO_LOJA_AVISTA` |
+| `creditoParceladoAdm` | `CREDITO_PARCELADO_ADM` | `cartaoLojaParceladoLoja` | `CARTAO_LOJA_PARCELADO_LOJA` |
+| `creditoParceladoBanco` | `CREDITO_PARCELADO_BNCO` | `cartaoLojaParcelado` | `CARTAO_LOJA_PARCELADO` |
+| `creditoParceladoCliente` | `CREDITO_PARCELADO_CLIENTE` | `cartaoLojaParceladoBanco` | `CARTAO_LOJA_PARCELADO_BANCO` |
+| `creditoCrediarioCredito` | `CREDITO_CREDIARIO_CREDITO` | `cartaoLojaPagtoFaturaCheque` | `CARTAO_LOJA_PAGTO_FATURA_CHEQUE` |
+| `voucherAlimentacao` | `VOUCHER_ALIMENTACAO` | `cartaoLojaPagtoFaturaDinheiro` | `CARTAO_LOJA_PAGTO_FATURA_DINHEIRO` |
+| `voucherRefeicao` | `VOUCHER_REFEICAO` | `preAutorizacao` | `PRE_AUTORIZACAO` |
+| `voucherAutomotivo` | `VOUCHER_AUTOMOTIVO` | `crediarioVenda` | `CREDIARIO_VENDA` |
+| `voucherCultura` | `VOUCHER_CULTURA` | `pix` | `PIX` |
+
+Auxiliares na extensão `PaymentTypeExtension`:
+
+```dart
+PaymentType.pix.code;                              // 'PIX'
+PaymentTypeExtension.fromCode('VOUCHER_REFEICAO'); // PaymentType.voucherRefeicao (ou null)
+PaymentTypeExtension.allCodes;                     // ['DEBITO_AVISTA', 'CREDITO_AVISTA', ...]
+```
+
+#### `PrintOperation`
+
+`printText` (`PRINT_TEXT`) e `printImage` (`PRINT_IMAGE`), via `PrintOperation.x.value`.
+
+## Exemplos por operação
+
+Os exemplos usam `payment` retornado por `initPayment`. Valores sempre em centavos.
+
+### Crédito à vista
+
+```dart
+await payment.creditPayment(
+  amount: 10000,
+  accessToken: 'SEU_ACCESS_TOKEN',
+  clientId: 'SEU_CLIENT_ID',
+  email: 'cliente@exemplo.com',
+  items: [
+    PaymentItem(name: 'Produto', quantity: 1, sku: 'SKU123', unitOfMeasure: 'UN', unitPrice: 10000),
+  ],
+);
+```
+
+### Crédito parcelado
+
+`creditPayment` sempre envia `CREDITO_AVISTA`. Para parcelar, use `checkout` com o tipo de parcelamento desejado:
+
+```dart
+await payment.checkout(
+  paymentRequest: PaymentRequest(
+    accessToken: 'SEU_ACCESS_TOKEN',
+    clientId: 'SEU_CLIENT_ID',
+    installments: 3,
+    items: [
+      PaymentItem(name: 'Produto', quantity: 1, sku: 'SKU123', unitOfMeasure: 'UN', unitPrice: 30000),
+    ],
+    paymentCode: PaymentType.creditoParceladoLoja.code, // sem juros (loja)
+    // ou PaymentType.creditoParceladoAdm.code (com juros, administradora)
+    value: 30000,
+  ),
+);
+```
+
+### Débito
+
+```dart
+await payment.debitPayment(
+  amount: 2500,
+  accessToken: 'SEU_ACCESS_TOKEN',
+  clientId: 'SEU_CLIENT_ID',
+);
+```
+
+### PIX
+
+```dart
+await payment.checkout(
+  paymentRequest: PaymentRequest(
+    accessToken: 'SEU_ACCESS_TOKEN',
+    clientId: 'SEU_CLIENT_ID',
+    items: [],
+    paymentCode: PaymentType.pix.code,
+    value: 1500,
+  ),
+);
+```
+
+### Voucher
+
+```dart
+await payment.checkout(
+  paymentRequest: PaymentRequest(
+    accessToken: 'SEU_ACCESS_TOKEN',
+    clientId: 'SEU_CLIENT_ID',
+    items: [],
+    paymentCode: PaymentType.voucherRefeicao.code, // ou voucherAlimentacao, voucherCultura...
+    value: 3200,
+  ),
+);
+```
+
+### Cancelamento (estorno)
+
+Use os dados do retorno do pagamento (`id`, `payments[0].cieloCode`, `payments[0].authCode`, `payments[0].amount`):
+
+```dart
+Future<void> cancel(Map<String, dynamic> paidOrder) async {
+  final paid = (paidOrder['payments'] as List).first as Map<String, dynamic>;
+  await payment.cancelPayment(
+    cancelRequest: CancelRequest(
+      id: paidOrder['id'] as String,
+      clientId: 'SEU_CLIENT_ID',
+      accessToken: 'SEU_ACCESS_TOKEN',
+      cieloCode: paid['cieloCode'] as String,
+      authCode: paid['authCode'] as String,
+      value: paid['amount'] as int,
+    ),
+  );
+  // Resultado em onCancelSuccess / onError.
+}
+```
+
+### Impressão de texto
+
+```dart
+await payment.printText(text: 'COMPROVANTE\nObrigado pela preferência!\n\n');
+
+// Com estilos do LIO (chaves conforme a documentação de impressão da Cielo LIO):
+await payment.printText(
+  text: 'TOTAL R\$ 10,00',
+  styles: [
+    {'key_attributes_align': 0, 'key_attributes_textsize': 30},
+  ],
+);
+```
+
+### Impressão de imagem
+
+```dart
+await payment.printImage(imagePath: '/storage/emulated/0/Pictures/logo.png');
+```
+
+### Reimpressão
+
+O plugin não tem método de reimpressão de comprovante. Para reimprimir, monte o comprovante com os dados do retorno do pagamento e use `printText`/`printImage`.
+
+## Tratamento de erros
+
+Os métodos de `Payment` não lançam exceção: em caso de falha retornam `false` e chamam `onError` com o texto `Erro ao iniciar pagamento: <erro>` (ou `Erro ao iniciar cancelamento` / `Erro ao iniciar impressão`), em que `<erro>` é a `PlatformException` do nativo.
+
+Códigos de `PlatformException` do nativo:
+
+| Código | Significado |
+|---|---|
+| `INVALID_ARGUMENT` | Faltou `paymentRequest`, `cancelRequest`, `printRequest` ou `urlCallback` na chamada ao nativo. |
+| `ERROR` | Exceção ao montar ou abrir o deep link do LIO (mensagem da exceção em `message`). |
+| `notImplemented` (`MissingPluginException` no Dart) | Método desconhecido no canal (por exemplo, `paymentCredit`/`paymentDebit`, que não existem no nativo, ou o antigo `initPayment`). |
+
+Mensagens em `onError` vindas do retorno do LIO:
+
+| Mensagem | Causa |
+|---|---|
+| `Erro: App LIO não instalado.` | Nenhum app responde a `lio://...`: o aparelho não é uma LIO ou o app LIO não está instalado. Nesse caso o método ainda retorna `true` (a chamada ao nativo deu certo), mas o LIO não abre. |
+| `reason` do LIO (ou `Erro desconhecido no pagamento`) | Pagamento recusado ou cancelado pelo operador (retorno em `order://payment` sem `responsecode`). |
+| `reason` do LIO (ou `Erro desconhecido na operação`) | Cancelamento ou impressão com `code` diferente de `0`. |
+| `Erro ao processar resposta: ...` | O retorno do LIO não pôde ser decodificado (base64/JSON). |
+| `Erro ao processar deep link: ...` | Falha inesperada ao ler o deep link. |
+| `Erro ao processar callback: ...` | O JSON recebido no Dart é inválido. |
+
+## App de exemplo
+
+O app em [`example/`](example) demonstra crédito, débito, cancelamento (com os campos preenchidos a partir do último pagamento) e impressão de texto e imagem.
+
+```bash
+cd example
+flutter pub get
+flutter run \
+  --dart-define=CIELO_ACCESS_TOKEN=seu_access_token \
+  --dart-define=CIELO_CLIENT_ID=seu_client_id \
+  --dart-define=CIELO_MERCHANT_CODE=seu_merchant_code   # opcional
+```
+
+Rode com uma LIO conectada por USB/ADB. As credenciais da sua aplicação Cielo entram só por `--dart-define` e não ficam no código. Sem `CIELO_ACCESS_TOKEN` ou `CIELO_CLIENT_ID`, o exemplo mostra um aviso e não abre o LIO para pagamento e cancelamento. A impressão continua disponível, porque não usa credenciais.
 
 ## Testes
 
-Testes Dart (MethodChannel mockado):
+Testes Dart (MethodChannel mockado, cobrindo todos os métodos de `Payment`, os callbacks e os modelos):
 
 ```bash
 flutter test
 ```
 
-Testes JVM da validação de licença no nativo (`android/native/src/test`), usando o wrapper do example e a JDK 17:
+Testes JVM do nativo (`android/native/src/test`: roteamento do `MethodChannel` e abertura dos deep links do LIO), com JDK 17 e o wrapper do example:
 
 ```bash
-FLUTTER_SDK=<caminho do Flutter SDK> example/android/gradlew -p android/native testDebugUnitTest
+export JAVA_HOME=<JDK 17>
+export FLUTTER_SDK=<caminho do Flutter SDK>   # precisa de bin/cache/artifacts/engine/**/flutter.jar (flutter precache --android)
+example/android/gradlew -p android/native --no-daemon -Dorg.gradle.jvmargs=-Xmx2g testDebugUnitTest
 ```
 
-Depois de alterar o código em `android/native`, gere de novo o binário distribuído em `android/libs` com `make build-native` (ou `sh scripts/build_android_aar.sh`).
+Depois de alterar `android/native`, gere de novo o binário distribuído em `android/libs`:
+
+```bash
+JAVA_TOOL_OPTIONS=-Xmx2g sh scripts/build_android_aar.sh   # ou: make build-native
+```
+
+## Migração da 2.x para a 3.0.0
+
+A 3.0.0 torna o plugin open source (MIT) e **remove toda a validação de licença**. Não existe mais chave, cadastro ou consulta a servidor da JY Labtech.
+
+O que mudou:
+
+- `CieloPaymentTech.I.initPayment` não recebe mais `licenceKey` nem `licenceInternalKey`.
+- A constante `CieloPaymentTech.licenceCheck` foi removida.
+- O erro `LICENCE_ERROR` e as mensagens de licença em `onMessage`/`onError` deixaram de existir.
+- `initPayment` não chama mais o nativo; o método `initPayment` do canal foi removido.
+- Pagamento, cancelamento e impressão abrem o LIO direto, sem consulta de rede antes.
+
+Antes (2.x):
+
+```dart
+final payment = CieloPaymentTech.I.initPayment(
+  handler: handler,
+  licenceKey: 'SUA_LICENCE_KEY',
+  licenceInternalKey: CieloPaymentTech.licenceCheck,
+  urlCallback: 'order://payment',
+);
+```
+
+Depois (3.0.0):
+
+```dart
+final payment = CieloPaymentTech.I.initPayment(
+  handler: handler,
+  urlCallback: 'order://payment', // opcional
+);
+```
+
+Remova também do seu projeto qualquer `--dart-define` ou configuração que servia só para a chave de licença (por exemplo, `CIELO_LICENCE_KEY`). Os demais métodos (`checkout`, `creditPayment`, `debitPayment`, `cancelPayment`, `print`, `printText`, `printImage`) não mudaram.
 
 ## Contribuindo
 
-Contribuições são bem-vindas! Por favor, abra uma issue ou pull request.
+Contribuições são bem-vindas:
+
+1. Abra uma [issue](https://github.com/JY-Labtech/cielo_payment_tech/issues) descrevendo o bug ou a melhoria.
+2. Faça um fork, crie uma branch e envie um pull request com testes (`flutter test` e os testes nativos).
+3. Se mudar `android/native`, regenere `android/libs` com `scripts/build_android_aar.sh` no mesmo PR.
 
 ## Licença
 
-Este projeto é proprietário e está protegido por direitos autorais.
+Distribuído sob a licença MIT. Veja [LICENSE](LICENSE).
 
-**ATENÇÃO:** Este software é propriedade de JYLabtech e está protegido por
-lei de direitos autorais. O uso deste software é restrito e está sujeito aos
-termos e condições da licença proprietária.
+## Créditos
 
-**Você NÃO tem permissão para:**
+Desenvolvido e mantido por **JY Labtech**: <https://jylabtech.com.br> · [GitHub](https://github.com/JY-Labtech).
 
-- Copiar, reproduzir ou duplicar o software
-- Modificar, adaptar ou criar trabalhos derivados
-- Vender, alugar, sublicenciar ou distribuir o software
-- Fazer engenharia reversa ou descompilar o software
-- Usar o software para fins não autorizados
-
-Para mais informações sobre licenciamento, consulte o arquivo `LICENSE` ou
-entre em contato com JYLabtech.
-
-**Copyright (c) 2024 JYLabtech. All Rights Reserved.**
-
-## 📞 Suporte
-
-Para questões relacionadas ao LIO e ao SDK da Cielo, consulte a documentação oficial da Cielo.
-
-Para licenças, acesse [portal.jylabtech.com.br](https://portal.jylabtech.com.br).
-
-Para questões específicas sobre este plugin, verifique os issues do repositório ou entre em contato com a equipe de desenvolvimento.
-
----
-
-<div align="left">
-  <table>
-  <tr>
-    <td align="center"><a href="https://github.com/JY-Labtech"><img src="https://avatars.githubusercontent.com/u/185066406?s=200&v=4" width="100px;" alt=""/><br /><sub><b>JY Labtech</b></sub></a><br /> <a href="https://github.com/JY-Labtech" title="Autor"></a></td>
-  </tr>
-
-</table>
-
-</div>
-
----
+Cielo e LIO são marcas de seus respectivos donos. Para dúvidas sobre o terminal e o SDK, consulte a documentação oficial da Cielo.

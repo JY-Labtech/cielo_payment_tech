@@ -26,23 +26,23 @@ class PaymentRequest {
   String toJson() => json.encode(toMap());
 
   factory PaymentRequest.fromMap(Map<String, dynamic> json) => PaymentRequest(
-    accessToken: json["accessToken"] == null ? null : json["accessToken"],
-    clientId: json["clientID"] == null ? null : json["clientID"],
+    accessToken: json["accessToken"],
+    clientId: json["clientID"],
     email: json["email"],
-    installments: json["installments"] == null ? null : json["installments"],
+    installments: json["installments"],
     items: json["items"] == null ? [] : List<PaymentItem>.from(json["items"].map((x) => PaymentItem.fromMap(x))),
-    merchantCode: json["merchantCode"] == null ? null : json["merchantCode"],
+    merchantCode: json["merchantCode"],
     paymentCode: json["paymentCode"] ?? '',
     value: json["value"] ?? 0,
   );
 
   Map<String, dynamic> toMap() => {
-    "accessToken": accessToken == null ? null : accessToken,
-    "clientID": clientId == null ? null : clientId,
+    "accessToken": accessToken,
+    "clientID": clientId,
     "email": email,
-    "installments": installments == null ? null : installments,
+    "installments": installments,
     "items": List<dynamic>.from(items.map((x) => x.toMap())),
-    "merchantCode": merchantCode == null ? null : merchantCode,
+    "merchantCode": merchantCode,
     "paymentCode": paymentCode,
     "value": value,
   };

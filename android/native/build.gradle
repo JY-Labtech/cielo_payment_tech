@@ -41,6 +41,10 @@ android {
         consumerProguardFiles "consumer-rules.pro"
     }
 
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
+
     buildTypes {
         release {
             minifyEnabled false
@@ -66,9 +70,8 @@ android {
 dependencies {
     compileOnly files(flutterJar)
     implementation 'androidx.annotation:annotation:1.8.0'
-    implementation 'androidx.security:security-crypto:1.1.0-alpha05'
+    testImplementation files(flutterJar)
     testImplementation 'junit:junit:4.13.2'
-    // O org.json do android.jar é stub nos testes JVM.
-    testImplementation 'org.json:json:20240303'
+    testImplementation 'org.mockito:mockito-core:5.0.0'
 }
 

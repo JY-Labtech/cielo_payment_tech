@@ -16,15 +16,15 @@ class PaymentResponse {
   String toJson() => json.encode(toMap());
 
   factory PaymentResponse.fromMap(Map<String, dynamic> json) => PaymentResponse(
-    code: json["code"] == null ? null : json["code"],
+    code: json["code"],
     order: json["order"] == null ? null : Order.fromMap(json["order"]),
-    reason: json["reason"] == null ? null : json["reason"],
+    reason: json["reason"],
   );
 
   Map<String, dynamic> toMap() => {
-    "code": code == null ? null : code,
-    "order": order == null ? null : order!.toMap(),
-    "reason": reason == null ? null : reason,
+    "code": code,
+    "order": order?.toMap(),
+    "reason": reason,
   };
 }
 
@@ -64,35 +64,35 @@ class PaymentResponseSuccess {
   String toJson() => json.encode(toMap());
 
   factory PaymentResponseSuccess.fromMap(Map<String, dynamic> json) => PaymentResponseSuccess(
-    createdAt: json["createdAt"] == null ? null : json["createdAt"],
-    id: json["id"] == null ? null : json["id"],
+    createdAt: json["createdAt"],
+    id: json["id"],
     items: json["items"] == null ? [] : List<OrderItem>.from(json["items"].map((x) => OrderItem.fromMap(x))),
-    notes: json["notes"] == null ? null : json["notes"],
-    number: json["number"] == null ? null : json["number"],
-    paidAmount: json["paidAmount"] == null ? null : json["paidAmount"],
+    notes: json["notes"],
+    number: json["number"],
+    paidAmount: json["paidAmount"],
     payments: json["payments"] == null ? [] : List<Payment>.from(json["payments"].map((x) => Payment.fromMap(x))),
-    pendingAmount: json["pendingAmount"] == null ? null : json["pendingAmount"],
-    price: json["price"] == null ? null : json["price"],
-    reference: json["reference"] == null ? null : json["reference"],
-    status: json["status"] == null ? null : json["status"],
-    type: json["type"] == null ? null : json["type"],
-    updatedAt: json["updatedAt"] == null ? null : json["updatedAt"],
+    pendingAmount: json["pendingAmount"],
+    price: json["price"],
+    reference: json["reference"],
+    status: json["status"],
+    type: json["type"],
+    updatedAt: json["updatedAt"],
   );
 
   Map<String, dynamic> toMap() => {
-    "createdAt": createdAt == null ? null : createdAt,
-    "id": id == null ? null : id,
+    "createdAt": createdAt,
+    "id": id,
     "items": List<dynamic>.from(items.map((x) => x.toMap())),
-    "notes": notes == null ? null : notes,
-    "number": number == null ? null : number,
-    "paidAmount": paidAmount == null ? null : paidAmount,
+    "notes": notes,
+    "number": number,
+    "paidAmount": paidAmount,
     "payments": List<dynamic>.from(payments.map((x) => x.toMap())),
-    "pendingAmount": pendingAmount == null ? null : pendingAmount,
-    "price": price == null ? null : price,
-    "reference": reference == null ? null : reference,
-    "status": status == null ? null : status,
-    "type": type == null ? null : type,
-    "updatedAt": updatedAt == null ? null : updatedAt,
+    "pendingAmount": pendingAmount,
+    "price": price,
+    "reference": reference,
+    "status": status,
+    "type": type,
+    "updatedAt": updatedAt,
   };
 }
 
@@ -184,27 +184,27 @@ class OrderItem {
   });
 
   factory OrderItem.fromMap(Map<String, dynamic> json) => OrderItem(
-    description: json["description"] == null ? null : json["description"],
-    details: json["details"] == null ? null : json["details"],
-    id: json["id"] == null ? null : json["id"],
-    name: json["name"] == null ? null : json["name"],
-    quantity: json["quantity"] == null ? null : json["quantity"],
-    reference: json["reference"] == null ? null : json["reference"],
-    sku: json["sku"] == null ? null : json["sku"],
-    unitOfMeasure: json["unitOfMeasure"] == null ? null : json["unitOfMeasure"],
-    unitPrice: json["unitPrice"] == null ? null : json["unitPrice"],
+    description: json["description"],
+    details: json["details"],
+    id: json["id"],
+    name: json["name"],
+    quantity: json["quantity"],
+    reference: json["reference"],
+    sku: json["sku"],
+    unitOfMeasure: json["unitOfMeasure"],
+    unitPrice: json["unitPrice"],
   );
 
   Map<String, dynamic> toMap() => {
-    "description": description == null ? null : description,
-    "details": details == null ? null : details,
-    "id": id == null ? null : id,
-    "name": name == null ? null : name,
-    "quantity": quantity == null ? null : quantity,
-    "reference": reference == null ? null : reference,
-    "sku": sku == null ? null : sku,
-    "unitOfMeasure": unitOfMeasure == null ? null : unitOfMeasure,
-    "unitPrice": unitPrice == null ? null : unitPrice,
+    "description": description,
+    "details": details,
+    "id": id,
+    "name": name,
+    "quantity": quantity,
+    "reference": reference,
+    "sku": sku,
+    "unitOfMeasure": unitOfMeasure,
+    "unitPrice": unitPrice,
   };
 }
 
@@ -288,7 +288,7 @@ class Payment {
     "installments": installments,
     "mask": mask,
     "merchantCode": merchantCode,
-    "paymentFields": paymentFields == null ? null : paymentFields!.toMap(),
+    "paymentFields": paymentFields?.toMap(),
     "primaryCode": primaryCode,
     "requestDate": requestDate,
     "secondaryCode": secondaryCode,

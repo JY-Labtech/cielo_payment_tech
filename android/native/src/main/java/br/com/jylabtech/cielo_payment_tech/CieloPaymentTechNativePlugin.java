@@ -7,7 +7,6 @@ import android.net.Uri;
 import androidx.annotation.NonNull;
 
 import br.com.jylabtech.cielo_payment_tech.core.PaymentMethod;
-import br.com.jylabtech.cielo_payment_tech.licence.LicenceConfig;
 import br.com.jylabtech.cielo_payment_tech.payments.CieloPaymentPresenter;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.embedding.engine.plugins.activity.ActivityAware;
@@ -22,8 +21,11 @@ public class CieloPaymentTechNativePlugin implements FlutterPlugin, MethodCallHa
   private Context context;
   private CieloPaymentPresenter paymentPresenter;
   private ActivityPluginBinding activityBinding;
-  private String cachedLicenceKey;
-  private String cachedLicenceInternalKey;
+
+  /** Só para testes: injeta o presenter usado pelas operações. */
+  void setPaymentPresenter(CieloPaymentPresenter presenter) {
+    this.paymentPresenter = presenter;
+  }
 
   @Override
   public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
@@ -49,28 +51,6 @@ public class CieloPaymentTechNativePlugin implements FlutterPlugin, MethodCallHa
       ensurePresenter();
 
       switch (paymentMethod) {
-        case INIT_PAYMENT:
-          String licenceKey = call.argument("licenceKey");
-          String licenceInternalKey = call.argument("licenceInternalKey");
-
-          if (licenceKey == null || licenceKey.trim().isEmpty()) {
-            result.error("INVALID_ARGUMENT", "licenceKey é obrigatório", null);
-            return;
-          }
-
-          // Opcional: a URL efetiva é sempre resolvida para o servidor oficial
-          // (LicenceConfig.resolveLicenceUrl); valores fora dele são ignorados.
-          if (licenceInternalKey == null || licenceInternalKey.trim().isEmpty()) {
-            licenceInternalKey = LicenceConfig.LICENCE_CHECK_URL;
-          }
-
-          licenceKey = licenceKey.trim();
-          cachedLicenceKey = licenceKey;
-          cachedLicenceInternalKey = licenceInternalKey;
-          paymentPresenter.updateLicenceKeys(licenceKey, licenceInternalKey);
-          result.success(true);
-          break;
-
         case PAYMENT_CHECKOUT:
           String paymentRequestJson = call.argument("paymentRequest");
           String urlCallback = call.argument("urlCallback");
@@ -78,7 +58,6 @@ public class CieloPaymentTechNativePlugin implements FlutterPlugin, MethodCallHa
             result.error("INVALID_ARGUMENT", "paymentRequest e urlCallback são obrigatórios", null);
             return;
           }
-          // Gate de licença: valida antes de abrir o LIO e responde o result.
           paymentPresenter.checkout(paymentRequestJson, urlCallback, result);
           break;
 
@@ -89,7 +68,6 @@ public class CieloPaymentTechNativePlugin implements FlutterPlugin, MethodCallHa
             result.error("INVALID_ARGUMENT", "cancelRequest e urlCallback são obrigatórios", null);
             return;
           }
-          // Gate de licença: valida antes de abrir o LIO e responde o result.
           paymentPresenter.cancel(cancelRequestJson, cancelUrlCallback, result);
           break;
 
@@ -100,7 +78,6 @@ public class CieloPaymentTechNativePlugin implements FlutterPlugin, MethodCallHa
             result.error("INVALID_ARGUMENT", "printRequest e urlCallback são obrigatórios", null);
             return;
           }
-          // Gate de licença: valida antes de abrir o LIO e responde o result.
           paymentPresenter.print(printRequestJson, printUrlCallback, result);
           break;
 
@@ -121,9 +98,6 @@ public class CieloPaymentTechNativePlugin implements FlutterPlugin, MethodCallHa
   private void ensurePresenter() {
     if (paymentPresenter == null) {
       paymentPresenter = new CieloPaymentPresenter(channel, context);
-      if (cachedLicenceKey != null && cachedLicenceInternalKey != null) {
-        paymentPresenter.updateLicenceKeys(cachedLicenceKey, cachedLicenceInternalKey);
-      }
     }
   }
 
@@ -133,7 +107,9 @@ public class CieloPaymentTechNativePlugin implements FlutterPlugin, MethodCallHa
       paymentPresenter.dispose();
       paymentPresenter = null;
     }
-    channel.setMethodCallHandler(null);
+    if (channel != null) {
+      channel.setMethodCallHandler(null);
+    }
     channel = null;
     context = null;
   }

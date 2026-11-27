@@ -29,35 +29,13 @@ final class Payment {
     required MethodChannel channel,
     required ICieloHandler paymentHandler,
     required String urlCallback,
-    required String licenceKey,
-    required String licenceInternalKey,
   }) {
     _instance ??= Payment._(
       channel: channel,
       paymentHandler: paymentHandler,
       urlCallback: urlCallback,
     );
-
-    _instance!._configureLicence(
-      licenceKey: licenceKey,
-      licenceInternalKey: licenceInternalKey,
-    );
-
     return _instance!;
-  }
-
-  void _configureLicence({
-    required String licenceKey,
-    required String licenceInternalKey,
-  }) {
-    channel.invokeMethod("initPayment", {
-      "licenceKey": licenceKey,
-      "licenceInternalKey": licenceInternalKey,
-      "urlCallback": urlCallback,
-    }).catchError((Object e) async {
-      await paymentHandler.onError('Erro ao configurar licença: $e');
-      return null;
-    });
   }
 
   Future<void> _handleMethodCall(MethodCall call) async {

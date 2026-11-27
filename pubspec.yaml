@@ -1,8 +1,15 @@
 name: cielo_payment_tech
-description: "Plugin Flutter para facilitar a integração com o SDK de pagamentos da Cielo através do LIO."
-version: 2.1.0
+description: "Flutter plugin for Cielo LIO smart POS terminals: credit, debit, PIX and voucher payments, cancellation and receipt printing via the LIO deep link API."
+version: 3.0.0
 homepage: https://github.com/JY-Labtech/cielo_payment_tech
-license: PROPRIETARY
+repository: https://github.com/JY-Labtech/cielo_payment_tech
+issue_tracker: https://github.com/JY-Labtech/cielo_payment_tech/issues
+topics:
+  - payment
+  - pos
+  - android
+  - flutter-plugin
+  - brazil
 
 environment:
   sdk: ^3.9.2

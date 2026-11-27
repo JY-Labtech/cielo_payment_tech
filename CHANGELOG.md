@@ -1,3 +1,20 @@
+## 3.0.0
+
+- **BREAKING:** licença e cobrança removidas. O plugin não consulta mais nenhum servidor da JY Labtech e não exige chave.
+  - `CieloPaymentTech.initPayment`: removidos os parâmetros `licenceKey` e `licenceInternalKey`. Agora: `initPayment({required ICieloHandler handler, String? urlCallback})`.
+  - `Payment.create`: removidos os parâmetros `licenceKey` e `licenceInternalKey`.
+  - Removida a constante `CieloPaymentTech.licenceCheck`.
+  - Removido o método `initPayment` do MethodChannel (o Dart não chama mais o nativo na inicialização).
+  - Removidos o erro `LICENCE_ERROR` e as mensagens de licença em `onMessage`/`onError`.
+  - Nativo: removidas as classes `LicenceConfig`, `LicenceRules`, `LicenceProvider`, `LicenceResult`, `LicenceNetwork`, `LicenceStorage`, `EncryptedLicenceStorage`, `CheckLicenceTech` e `CheckLicenceEntity`, e o gate de licença por operação (`ensureLicence`/`runWithLicence`). Pagamento, cancelamento e impressão abrem o LIO direto, com uma única resposta ao `result`.
+  - Removida a dependência `androidx.security:security-crypto` e a permissão `INTERNET` do manifest do plugin (só serviam à licença).
+- Projeto open source sob a licença MIT.
+- README reescrito: funcionalidades, requisitos, configuração Android, uso rápido, referência completa da API, exemplos por operação, erros, testes e guia de migração.
+- `pubspec.yaml`: descrição em inglês, `repository`, `issue_tracker` e `topics`.
+- O código-fonte nativo (`android/native`) passa a ser publicado no pacote; o build continua usando os binários pré-compilados de `android/libs` (regenerados).
+- Testes: Dart cobrindo todos os métodos de `Payment`, os callbacks e os modelos; JVM do nativo cobrindo o roteamento do MethodChannel e a abertura dos deep links do LIO.
+- Example sem chave de licença (`--dart-define=CIELO_LICENCE_KEY` removido). As credenciais Cielo do example saíram do código e agora vêm de `--dart-define=CIELO_ACCESS_TOKEN`, `CIELO_CLIENT_ID` e `CIELO_MERCHANT_CODE` (opcional). Sem elas, o app mostra um aviso e não chama o LIO para pagamento e cancelamento.
+
 ## 2.1.0
 
 - Licença conforme o contrato do jylabtech_core (JYN-234): o cache offline vale por no máximo 72 horas (antes 7 dias) e só é usado quando o servidor não responde (sem internet, timeout, 408, 429, 5xx).

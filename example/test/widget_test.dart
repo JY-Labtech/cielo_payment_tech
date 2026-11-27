@@ -18,4 +18,10 @@ void main() {
 
     expect(find.text('Configuração do Pagamento'), findsOneWidget);
   });
+
+  testWidgets('Sem --dart-define das credenciais mostra aviso', (WidgetTester tester) async {
+    await tester.pumpWidget(const MyApp());
+
+    expect(find.textContaining('Credenciais Cielo não informadas'), findsOneWidget);
+  });
 }

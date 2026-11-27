@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cielo_payment_tech/cielo_payment_tech.dart';
 
 class PaymentHandler implements ICieloHandler {
@@ -17,31 +18,31 @@ class PaymentHandler implements ICieloHandler {
 
   @override
   Future<void> onTransactionSuccess(Map<String, dynamic> response) async {
-    print('✅ Pagamento aprovado: $response');
+    debugPrint('✅ Pagamento aprovado: $response');
     onSuccessCallback?.call(response);
   }
 
   @override
   Future<void> onCancelSuccess(Map<String, dynamic> response) async {
-    print('✅ Cancelamento aprovado: $response');
+    debugPrint('✅ Cancelamento aprovado: $response');
     onCancelSuccessCallback?.call(response);
   }
 
   @override
   Future<void> onPrintSuccess(Map<String, dynamic> response) async {
-    print('✅ Impressão concluída: $response');
+    debugPrint('✅ Impressão concluída: $response');
     onPrintSuccessCallback?.call(response);
   }
 
   @override
   Future<void> onError(String message) async {
-    print('❌ Erro: $message');
+    debugPrint('❌ Erro: $message');
     onErrorCallback?.call(message);
   }
 
   @override
   Future<void> onMessage(String message) async {
-    print('ℹ️ Mensagem: $message');
+    debugPrint('ℹ️ Mensagem: $message');
     onMessageCallback?.call(message);
   }
 }
